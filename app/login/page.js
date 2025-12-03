@@ -1,180 +1,122 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import axios from "axios";
+import { useState, useEffect } from "react";
+import { FiMail, FiLock } from "react-icons/fi";
+import { toast, Toaster } from "react-hot-toast";
+import { useRouter } from "next/navigation";
 
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-} from "recharts";
+export default function EmployeeLoginPage() {
+  const [form, setForm] = useState({ email: "", password: "" });
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
-const COLORS = ["#60a5fa", "#fbbf24", "#34d399"];
+  const baseUrl =
+    typeof window !== "undefined"
+      ? process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api"
+      : "";
 
-export default function ReportsPage() {
-  const [contributorData, setContributorData] = useState([]);
-  const [issueData, setIssueData] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  // 🔥 TOKEN + USER stored safely in state
-  const [token, setToken] = useState("");
-  const [username, setUsername] = useState("");
-
-  // Load localStorage ONLY on client
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const storedToken = localStorage.getItem("employeeToken") || "";
-      const user = JSON.parse(localStorage.getItem("employeeUser") || "{}");
-      setToken(storedToken);
-      setUsername(user?.name || "");
+  const handleLogin = async () => {
+    if (!form.email || !form.password) {
+      toast.error("Please fill in all fields!");
+      return;
     }
-  }, []);
 
-  // Fetch report AFTER token + username is loaded
-  useEffect(() => {
-    if (!token || !username) return; // wait until loaded
+    setLoading(true);
 
-    const fetchReport = async () => {
-      try {
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+    try {
+      const res = await fetch(`${baseUrl}/users/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
 
-        const res = await axios.get(`${baseUrl}/tasks/monthly`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+      const data = await res.json();
 
-        const report = res.data;
+      if (res.ok) {
+        toast.success("Login successful!");
 
-        // BAR CHART — Current user
-        const employees = report.employees || [];
-        const userOnly = employees.filter((e) => e.employee === username);
+        // 🔥 Safe check: only run in browser
+        if (typeof window !== "undefined") {
+          localStorage.setItem("employeeToken", data.token);
+          localStorage.setItem("employeeUser", JSON.stringify(data.user));
+        }
 
-        setContributorData(
-          userOnly.map((e) => ({
-            name: e.employee,
-            tasks: e.totalTasks,
-            hours: e.hoursWorked,
-          }))
-        );
-
-        // PIE CHART — Global summary
-        const summary = report.summary || {};
-
-        setIssueData([
-          { name: "To Do", value: summary.todo || 0 },
-          { name: "In Progress", value: summary.inProgress || 0 },
-          { name: "Done", value: summary.done || 0 },
-        ]);
-      } catch (err) {
-        console.error("Failed to fetch report:", err);
-      } finally {
-        setLoading(false);
+        // 🔥 Use router instead of window.location
+        router.push("/board");
+      } else {
+        toast.error(data.error || "Invalid credentials!");
       }
-    };
-
-    fetchReport();
-  }, [token, username]);
-
-  if (loading) {
-    return (
-      <div className="p-6 text-center text-xl text-slate-300">
-        Loading monthly report...
-      </div>
-    );
-  }
-
+    } catch (err) {
+      console.error(err);
+      toast.error("Something went wrong!");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <div className="p-4 md:p-6">
-      {/* Page Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">Monthly Reports</h1>
-        <p className="text-slate-400">
-          Analyze project progress and team performance.
+    <div className="min-h-screen flex items-center justify-center bg-[#0b1120]">
+      <Toaster position="top-right" />
+      <div className="bg-[#0f172a] p-8 rounded-xl w-[400px] border border-[#243349] shadow-lg">
+        <h1 className="text-2xl font-bold text-white mb-6 text-center">
+          Employee Login
+        </h1>
+
+        {/* Email */}
+        <div className="mb-4">
+          <label className="text-gray-400 text-sm mb-1 block">Email</label>
+          <div className="flex items-center bg-[#1e293b] rounded-lg border border-[#243349] overflow-hidden">
+            <span className="px-3 text-gray-400">
+              <FiMail />
+            </span>
+            <input
+              type="email"
+              placeholder="your.email@example.com"
+              className="w-full bg-transparent text-white p-2 outline-none"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+            />
+          </div>
+        </div>
+
+        {/* Password */}
+        <div className="mb-6">
+          <label className="text-gray-400 text-sm mb-1 block">Password</label>
+          <div className="flex items-center bg-[#1e293b] rounded-lg border border-[#243349] overflow-hidden">
+            <span className="px-3 text-gray-400">
+              <FiLock />
+            </span>
+            <input
+              type="password"
+              placeholder="********"
+              className="w-full bg-transparent text-white p-2 outline-none"
+              value={form.password}
+              onChange={(e) =>
+                setForm({ ...form, password: e.target.value })
+              }
+            />
+          </div>
+        </div>
+
+        {/* Login Button */}
+        <button
+          onClick={handleLogin}
+          disabled={loading}
+          className={`w-full py-2 px-4 rounded-lg text-white font-semibold ${
+            loading
+              ? "bg-blue-400 cursor-not-allowed"
+              : "bg-blue-600 hover:bg-blue-700"
+          }`}
+        >
+          {loading ? "Logging in..." : "Login"}
+        </button>
+
+        <p className="text-gray-500 text-sm mt-4 text-center">
+          Forgot password?{" "}
+          <a href="/employee/forgot-password" className="text-blue-500">
+            Reset
+          </a>
         </p>
-      </div>
-
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Contributor Progress (Bar Chart) */}
-        <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl">
-          <h2 className="text-xl font-semibold mb-1">Contributor Progress</h2>
-          <p className="text-slate-400 text-sm mb-6">
-            Tasks completed by team members.
-          </p>
-
-          <div className="w-full h-72 md:h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={contributorData}>
-                <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" />
-                <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} />
-                <YAxis stroke="#94a3b8" fontSize={12} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#1e293b",
-                    border: "1px solid #334155",
-                    borderRadius: "8px",
-                  }}
-                  labelStyle={{ color: "#fff" }}
-                />
-                <Bar dataKey="tasks" fill="#818cf8" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="hours" fill="#82ca9d" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Issue Distribution (Pie Chart) */}
-        <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl">
-          <h2 className="text-xl font-semibold mb-1">Issue Distribution</h2>
-          <p className="text-slate-400 text-sm mb-6">
-            Overview of issue status in the project.
-          </p>
-
-          <div className="w-full h-72 md:h-80 flex justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={issueData}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius="70%"
-                  dataKey="value"
-                  label={({ name, percent }) =>
-                    `${name}: ${(percent * 100).toFixed(0)}%`
-                  }
-                  labelStyle={{ fontSize: 12, fill: "#cbd5e1" }}
-                >
-                  {issueData.map((entry, index) => (
-                    <Cell key={index} fill={COLORS[index]} />
-                  ))}
-                </Pie>
-
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#1e293b",
-                    border: "1px solid #334155",
-                    borderRadius: "8px",
-                  }}
-                  labelStyle={{ color: "#fff" }}
-                />
-
-                <Legend
-                  verticalAlign="bottom"
-                  height={32}
-                  wrapperStyle={{ color: "#cbd5e1", fontSize: 12 }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
       </div>
     </div>
   );
