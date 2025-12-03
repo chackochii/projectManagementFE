@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   FiHome, FiGrid, FiList, FiBarChart2,
@@ -13,6 +13,7 @@ export default function Sidebar() {
   const { projects, currentProject, setCurrentProject } = useProject();
   const [open, setOpen] = useState(false);
   const [showProjects, setShowProjects] = useState(false);
+  const [user, setUser] = useState(null);
 
   const nav = [
     { href: "/dashboard", label: "Dashboard", icon: <FiHome /> },
@@ -27,7 +28,10 @@ export default function Sidebar() {
     if (window.innerWidth < 768) setOpen(false);
   };
 
-  const user = JSON.parse(localStorage.getItem("employeeUser"));
+useEffect(() => {
+  const saved = localStorage.getItem("employeeUser");
+  if (saved) setUser(JSON.parse(saved));
+}, []);
   const username = user?.name;
   const role = user?.role;
 
@@ -73,6 +77,7 @@ export default function Sidebar() {
                       onClick={() => {
                         setCurrentProject(p);
                         setShowProjects(false);
+                        if (window.innerWidth < 768) setOpen(false); 
                       }}
                       className={`w-full text-left px-3 py-2 hover:bg-slate-700 ${
                         currentProject?.id === p.id
