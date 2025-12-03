@@ -31,11 +31,18 @@ export default function UsersPage() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  /* LOAD TOKEN ONCE */
-  useEffect(() => {
-    const t = localStorage.getItem("token");
-    if (t) setToken(t);
-  }, []);
+/* REDIRECT IF NO TOKEN + LOAD TOKEN */
+useEffect(() => {
+  const t = localStorage.getItem("token");
+
+  if (!t) {
+    window.location.href = "/admin"; // redirect to login
+    return;
+  }
+
+  setToken(t); // allow page to continue
+}, []);
+
 
   /* FETCH USERS ONLY WHEN TOKEN EXISTS */
   useEffect(() => {
