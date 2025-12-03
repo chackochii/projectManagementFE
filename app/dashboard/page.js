@@ -15,6 +15,7 @@ import moment from "moment";
 export default function DashboardPage() {
   const [seconds, setSeconds] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
+  const [token, setToken] = useState("");
 
   const { currentProject } = useProject();
   const projectId = currentProject?.id;
@@ -29,17 +30,18 @@ export default function DashboardPage() {
     done: 0,
   });
 
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("employeeToken")
-      : null;
+useEffect(() => {
+  if (typeof window !== "undefined") {
+    setToken(localStorage.getItem("employeeToken"));
+  }
+}, []);
 
   const baseUrl =
     process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api";
 
   // ---------------- FETCH USER TASK COUNTS ----------------
   const fetchUserTasks = async () => {
-    if (!projectId) return;
+     if (!projectId || !token) return;
 
     try {
       const res = await axios.get(
@@ -69,7 +71,7 @@ export default function DashboardPage() {
 
   // ---------------- FETCH PROJECT DETAILS ----------------
 const fetchProjectDetails = async () => {
-  if (!projectId) return;
+  if (!projectId || !token) return;
 
   try {
     const res = await axios.get(`${baseUrl}/projects/${projectId}`, {
@@ -115,12 +117,12 @@ const fetchProjectDetails = async () => {
 };
 
 
-  useEffect(() => {
-    if (!projectId) return;
+useEffect(() => {
+  if (!projectId || !token) return;
 
-    fetchUserTasks();
-    fetchProjectDetails();
-  }, [projectId]);
+  fetchUserTasks();
+  fetchProjectDetails();
+}, [projectId, token]);
 
   // -------- TIMER LOGIC ----------
   useEffect(() => {
