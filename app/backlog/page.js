@@ -13,9 +13,10 @@ export default function BacklogPage() {
   const [backlogIssues, setBacklogIssues] = useState([]);
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState([]);
+  const [token, setToken] = useState(null);
   const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
-    const token = localStorage.getItem("employeeToken");
+
 
 const { currentProject } = useProject();
 const projectId = currentProject?.id;
@@ -33,6 +34,21 @@ console.log("Current Project ID in BacklogPage:", projectId);
     assigneeId: null,
     projectId: currentProject?.id,
   });
+
+   // ✅ Load token safely on client
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const employeeToken = localStorage.getItem("employeeToken");
+      if (employeeToken) setToken(employeeToken);
+    }
+  }, []);
+
+  // Fetch backlog only after token is set
+  useEffect(() => {
+    if (!token || !projectId) return;
+    fetchBacklog();
+    fetchUsers();
+  }, [token, projectId]);
 
   // Fetch backlog
 const fetchBacklog = async () => {
@@ -64,7 +80,6 @@ const fetchBacklog = async () => {
 };
 
 const handleCreateIssue = async () => {
-  const token = localStorage.getItem("employeeToken"); // get token here
 
   if (!form.title) {
     toast.error("Title is required!");
@@ -126,10 +141,11 @@ const fetchUsers = async () => {
 
 
 
-useEffect(() => {
-  fetchBacklog();
-   fetchUsers(); 
-}, [projectId]); // Refetch when projectId changes
+// useEffect(() => {
+//   fetchBacklog();
+//    fetchUsers(); 
+// }, [projectId]); // Refetch when projectId changes
+
 
 
 
