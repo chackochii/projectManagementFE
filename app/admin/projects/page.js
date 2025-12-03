@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import axios from "axios";
-import Modal from "../../components/projectModal";
 import { toast, Toaster } from "react-hot-toast";
 import { UserPlus } from "lucide-react";
 
@@ -15,34 +14,43 @@ export default function ProjectListPage() {
     cancelled: 0,
   });
 
+  const [isMobile, setIsMobile] = useState(false);
   const [loading, setLoading] = useState(false);
+
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedProject, setSelectedProject] = useState(null);
 
-
   const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
+  // Detect Screen Size
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 640);
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // Fetch Project List
   useEffect(() => {
     fetchProjects();
   }, []);
 
   const getAuthHeaders = () => ({
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem("token")}`,
-    },
+    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
   });
 
   const fetchProjects = async () => {
     try {
       setLoading(true);
-
       const res = await axios.get(`${baseUrl}/projects/`, getAuthHeaders());
-      const data = res.data.data;
+      const data = res.data.data || [];
 
       setProjects(data);
 
-      // Stats
       setStats({
         total: data.length,
         active: data.filter((p) => p.status === "active").length,
@@ -63,80 +71,120 @@ export default function ProjectListPage() {
 
   return (
     <div className="p-4 md:p-6">
-      <Toaster position="top-right" />
+      <Toaster />
 
-      {/* HEADER */}
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold">Projects</h1>
-          <p className="text-slate-400">Manage and track project progress.</p>
-        </div>
+      {/* PAGE TITLE */}
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-xl md:text-3xl font-bold">Projects</h1>
 
         <button
           onClick={() => setShowCreateModal(true)}
-          className="bg-blue-600 px-5 py-2 rounded-lg hover:bg-blue-700"
+          className="bg-blue-600 px-4 py-2 rounded-lg hover:bg-blue-700 text-sm md:text-base"
         >
           + Add Project
         </button>
       </div>
 
-      {/* SUMMARY CARDS */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mb-8">
-        <StatCard title="Total" value={stats.total} />
-        <StatCard title="Active" value={stats.active} />
-        <StatCard title="Completed" value={stats.completed} />
-        <StatCard title="Cancelled" value={stats.cancelled} />
-      </div>
-
-      {/* PROJECT LIST */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
-        <h2 className="text-lg font-semibold mb-4">Project List</h2>
-
-        {loading ? (
-          <p className="text-slate-400">Loading...</p>
-        ) : projects.length === 0 ? (
-          <p className="text-slate-400">No projects found.</p>
-        ) : (
-          <table className="w-full text-left">
-            <thead>
-              <tr className="text-slate-400 border-b border-slate-800">
-                <th className="p-3">Project</th>
-                <th className="p-3">Client</th>
-                <th className="p-3">Status</th>
-                <th className="p-3">Created</th>
-                <th className="p-3 text-right">Actions</th>
-              </tr>
-            </thead>
-
-            <tbody>
+      {/* ---- MOBILE VIEW ---- */}
+      {isMobile ? (
+        <>
+          {/* MOBILE PROJECT LIST */}
+          {loading ? (
+            <p className="text-slate-400">Loading...</p>
+          ) : projects.length === 0 ? (
+            <p className="text-slate-400">No projects found.</p>
+          ) : (
+            <div className="flex flex-col gap-4">
               {projects.map((project) => (
-                <tr key={project.id} className="border-b border-slate-800">
-                  <td className="p-3">{project.name}</td>
-                  <td className="p-3">{project.clientName || "—"}</td>
-                  <td className="p-3">
-                    <StatusBadge status={project.status} />
-                  </td>
-                  <td className="p-3">
-                    {new Date(project.createdAt).toLocaleDateString()}
-                  </td>
+                <div
+                  key={project.id}
+                  className="bg-slate-900 border border-slate-800 p-4 rounded-xl"
+                >
+                  <h2 className="text-lg font-semibold">{project.name}</h2>
+                  <p className="text-sm text-slate-400">
+                    Client: {project.clientName || "—"}
+                  </p>
 
-                  <td className="p-3 text-right flex gap-3 justify-end">
+                  <span
+                    className={`inline-block mt-2 px-2 py-1 text-xs rounded-full ${
+                      project.status === "active"
+                        ? "bg-green-500/20 text-green-400"
+                        : project.status === "completed"
+                        ? "bg-blue-500/20 text-blue-400"
+                        : "bg-red-500/20 text-red-400"
+                    }`}
+                  >
+                    {project.status}
+                  </span>
 
-                    {/* Assign User Button */}
-                    <button
-                      onClick={() => openAssignModal(project)}
-                      className="flex items-center gap-1 bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded-lg"
-                    >
-                      <UserPlus size={16} /> Assign Users
-                    </button>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Created: {new Date(project.createdAt).toLocaleDateString()}
+                  </p>
 
-                  </td>
-                </tr>
+                  <button
+                    onClick={() => openAssignModal(project)}
+                    className="mt-3 w-full flex items-center justify-center gap-2 bg-slate-800 py-2 rounded-lg border border-slate-700"
+                  >
+                    <UserPlus size={16} /> Assign Users
+                  </button>
+                </div>
               ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          {/* ---- DESKTOP VIEW ---- */}
+
+          {/* SUMMARY CARDS */}
+          <div className="grid grid-cols-4 gap-4 mb-6">
+            <StatCard title="Total" value={stats.total} />
+            <StatCard title="Active" value={stats.active} />
+            <StatCard title="Completed" value={stats.completed} />
+            <StatCard title="Cancelled" value={stats.cancelled} />
+          </div>
+
+          {/* PROJECT TABLE */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 overflow-x-auto">
+            <table className="min-w-full text-left">
+              <thead>
+                <tr className="border-b border-slate-700">
+                  <th className="p-3">Project</th>
+                  <th className="p-3">Client</th>
+                  <th className="p-3">Status</th>
+                  <th className="p-3">Created</th>
+                  <th className="p-3 text-right">Action</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {projects.map((project) => (
+                  <tr key={project.id} className="border-b border-slate-800">
+                    <td className="p-3">{project.name}</td>
+                    <td className="p-3">{project.clientName || "—"}</td>
+                    <td className="p-3">
+                      <StatusBadge status={project.status} />
+                    </td>
+                    <td className="p-3">
+                      {new Date(project.createdAt).toLocaleDateString()}
+                    </td>
+
+                    <td className="p-3 text-right">
+                      <button
+                        onClick={() => openAssignModal(project)}
+                        className="flex items-center gap-2 bg-slate-800 px-3 py-1 rounded-lg "
+                      >
+                        <UserPlus size={16} />
+                        Assign
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
 
       {/* CREATE PROJECT MODAL */}
       {showCreateModal && (
@@ -157,7 +205,7 @@ export default function ProjectListPage() {
   );
 }
 
-/* STATUS BADGE */
+/* REUSABLE STATUS BADGE */
 function StatusBadge({ status }) {
   const color = {
     active: "text-green-400 bg-green-500/20",
@@ -166,23 +214,22 @@ function StatusBadge({ status }) {
   };
 
   return (
-    <span
-      className={`px-3 py-1 rounded-full text-sm ${color[status] || "bg-slate-700"}`}
-    >
+    <span className={`px-2 py-1 rounded-full text-xs ${color[status]}`}>
       {status}
     </span>
   );
 }
 
-/* STAT CARD */
+/* SUMMARY CARD */
 function StatCard({ title, value }) {
   return (
     <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl text-center">
-      <h3 className="text-slate-400">{title}</h3>
+      <h3 className="text-slate-400 text-sm">{title}</h3>
       <p className="text-3xl font-bold mt-1">{value}</p>
     </div>
   );
 }
+
 
 
 
@@ -210,7 +257,7 @@ function CreateProjectModal({ closeModal, refreshProjects }) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${typeof window !== "undefined" ? localStorage.getItem("token") : ""}`,
         },
         body: JSON.stringify(form),
       });
@@ -333,9 +380,16 @@ function AssignUserModal({ project, closeModal }) {
   const [loading, setLoading] = useState(true);
   const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
-  const getAuthHeaders = () => ({
-    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-  });
+ const getAuthHeaders = () => {
+  if (typeof window === "undefined") return {}; // Prevent server-side access
+  const token = localStorage.getItem("token");
+  return {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  };
+};
+
 
   /* FETCH ALL USERS AND ASSIGNED USERS */
   useEffect(() => {
