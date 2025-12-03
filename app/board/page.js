@@ -14,13 +14,16 @@ export default function Board() {
   ]);
 
   const [loading, setLoading] = useState(false);
+  const [token, setToken] = useState("");
 
   const { currentProject } = useProject();
   const projectId = currentProject?.id;
 
-  const token = typeof window !== "undefined"
-    ? localStorage.getItem("employeeToken")
-    : null;
+useEffect(() => {
+  if (typeof window !== "undefined") {
+    setToken(localStorage.getItem("employeeToken"));
+  }
+}, []);
 
   const baseUrl =
     process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api";
@@ -68,7 +71,7 @@ export default function Board() {
 
   useEffect(() => {
     if (projectId) fetchTasks();
-  }, [projectId]);
+  }, [projectId, token]);
 
   // ============================================================
   // Drag & Drop Logic (Forward Only)
