@@ -7,6 +7,7 @@ import axios from "axios";
 export default function LeaveManagementPage() {
   const [leaves, setLeaves] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [token, setToken] = useState(null);
   const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
   const statusColor = {
@@ -15,12 +16,27 @@ export default function LeaveManagementPage() {
     Rejected: "text-red-400 bg-red-400/10",
   };
 
+  /* ✅ LOAD TOKEN + PROTECT PAGE */
+  useEffect(() => {
+    const t = localStorage.getItem("token");
+
+    if (!t) {
+      window.location.href = "/admin"; // redirect to login
+      return;
+    }
+
+    setToken(t);
+  }, []);
+
+  /* ✅ FETCH LEAVES ONLY AFTER TOKEN IS SET */
+  useEffect(() => {
+    if (!token) return;
+    fetchLeaves();
+  }, [token]);
+
   const fetchLeaves = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("token");
-      if (!token) return;
-
       const res = await axios.get(`${baseUrl}/leaves`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -43,10 +59,6 @@ export default function LeaveManagementPage() {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchLeaves();
-  }, []);
 
   return (
     <div>
@@ -150,7 +162,6 @@ export default function LeaveManagementPage() {
                     </p>
                   </div>
 
-                  {/* Buttons */}
                   {leave.status === "Pending" && (
                     <div className="flex gap-3 mt-4">
                       <button className="flex-1 py-2 bg-green-900/40 text-green-400 rounded-lg hover:bg-green-900/60 transition">
