@@ -16,7 +16,6 @@ import {
   Cell,
   Legend,
 } from "recharts";
-import { base } from "framer-motion/client";
 
 const COLORS = ["#60a5fa", "#fbbf24", "#34d399"];
 
@@ -25,64 +24,63 @@ export default function ReportsPage() {
   const [issueData, setIssueData] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const user = JSON.parse(localStorage.getItem("employeeUser"));
-const username = user?.name; 
+  // 🔥 TOKEN + USER stored safely in state
+  const [token, setToken] = useState("");
+  const [username, setUsername] = useState("");
 
-const fetchReport = async () => {
-  try {
-    const token = localStorage.getItem("employeeToken");
-    const user = JSON.parse(localStorage.getItem("employeeUser")); 
-    const username = user?.name;
-
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL;
-
-    const res = await axios.get(`${baseUrl}/tasks/monthly`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    const report = res.data;
-
-    /* -----------------------------
-       BAR CHART — FILTER USER ONLY
-    ------------------------------*/
-    const employees = report.employees || [];
-    const userOnly = employees.filter((e) => e.employee === username);
-
-    const contributor = userOnly.map((e) => ({
-      name: e.employee,
-      tasks: e.totalTasks,
-      hours: e.hoursWorked,
-    }));
-
-    setContributorData(contributor);
-
-    /* ---------------------------------------
-       PIE CHART — USE GLOBAL SUMMARY (ALL)
-    ----------------------------------------*/
-    const summary = report.summary || {};
-
-    const issues = [
-      { name: "To Do", value: summary.todo || 0 },
-      { name: "In Progress", value: summary.inProgress || 0 },
-      { name: "Done", value: summary.done || 0 },
-    ];
-
-    setIssueData(issues);
-
-  } catch (err) {
-    console.error("Failed to fetch report:", err);
-  } finally {
-    setLoading(false);
-  }
-};
-
-
-
+  // Load localStorage ONLY on client
   useEffect(() => {
-    fetchReport();
+    if (typeof window !== "undefined") {
+      const storedToken = localStorage.getItem("employeeToken") || "";
+      const user = JSON.parse(localStorage.getItem("employeeUser") || "{}");
+      setToken(storedToken);
+      setUsername(user?.name || "");
+    }
   }, []);
+
+  // Fetch report AFTER token + username is loaded
+  useEffect(() => {
+    if (!token || !username) return; // wait until loaded
+
+    const fetchReport = async () => {
+      try {
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+
+        const res = await axios.get(`${baseUrl}/tasks/monthly`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const report = res.data;
+
+        // BAR CHART — Current user
+        const employees = report.employees || [];
+        const userOnly = employees.filter((e) => e.employee === username);
+
+        setContributorData(
+          userOnly.map((e) => ({
+            name: e.employee,
+            tasks: e.totalTasks,
+            hours: e.hoursWorked,
+          }))
+        );
+
+        // PIE CHART — Global summary
+        const summary = report.summary || {};
+
+        setIssueData([
+          { name: "To Do", value: summary.todo || 0 },
+          { name: "In Progress", value: summary.inProgress || 0 },
+          { name: "Done", value: summary.done || 0 },
+        ]);
+      } catch (err) {
+        console.error("Failed to fetch report:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchReport();
+  }, [token, username]);
 
   if (loading) {
     return (
@@ -91,6 +89,7 @@ const fetchReport = async () => {
       </div>
     );
   }
+
 
   return (
     <div className="p-4 md:p-6">
