@@ -211,6 +211,7 @@ function StatusBadge({ status }) {
     active: "text-green-400 bg-green-500/20",
     completed: "text-blue-400 bg-blue-500/20",
     cancelled: "text-red-400 bg-red-500/20",
+    "on-hold": "text-yellow-400 bg-yellow-500/20",
   };
 
   return (
