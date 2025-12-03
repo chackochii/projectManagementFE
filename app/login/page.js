@@ -1,12 +1,19 @@
 "use client";
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
 import { FiMail, FiLock } from "react-icons/fi";
 import { toast, Toaster } from "react-hot-toast";
+import { useRouter } from "next/navigation";
 
 export default function EmployeeLoginPage() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
-  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api";
+  const router = useRouter();
+
+  const baseUrl =
+    typeof window !== "undefined"
+      ? process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api"
+      : "";
 
   const handleLogin = async () => {
     if (!form.email || !form.password) {
@@ -15,6 +22,7 @@ export default function EmployeeLoginPage() {
     }
 
     setLoading(true);
+
     try {
       const res = await fetch(`${baseUrl}/users/login`, {
         method: "POST",
@@ -26,10 +34,15 @@ export default function EmployeeLoginPage() {
 
       if (res.ok) {
         toast.success("Login successful!");
-        localStorage.setItem("employeeToken", data.token);
-        localStorage.setItem("employeeUser", JSON.stringify(data.user));
-        // redirect to employee dashboard
-        window.location.href = "/board";
+
+        // 🔥 Safe check: only run in browser
+        if (typeof window !== "undefined") {
+          localStorage.setItem("employeeToken", data.token);
+          localStorage.setItem("employeeUser", JSON.stringify(data.user));
+        }
+
+        // 🔥 Use router instead of window.location
+        router.push("/board");
       } else {
         toast.error(data.error || "Invalid credentials!");
       }
@@ -45,7 +58,9 @@ export default function EmployeeLoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-[#0b1120]">
       <Toaster position="top-right" />
       <div className="bg-[#0f172a] p-8 rounded-xl w-[400px] border border-[#243349] shadow-lg">
-        <h1 className="text-2xl font-bold text-white mb-6 text-center">Employee Login</h1>
+        <h1 className="text-2xl font-bold text-white mb-6 text-center">
+          Employee Login
+        </h1>
 
         {/* Email */}
         <div className="mb-4">
@@ -76,7 +91,9 @@ export default function EmployeeLoginPage() {
               placeholder="********"
               className="w-full bg-transparent text-white p-2 outline-none"
               value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, password: e.target.value })
+              }
             />
           </div>
         </div>
@@ -86,15 +103,19 @@ export default function EmployeeLoginPage() {
           onClick={handleLogin}
           disabled={loading}
           className={`w-full py-2 px-4 rounded-lg text-white font-semibold ${
-            loading ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
+            loading
+              ? "bg-blue-400 cursor-not-allowed"
+              : "bg-blue-600 hover:bg-blue-700"
           }`}
         >
           {loading ? "Logging in..." : "Login"}
         </button>
 
-        {/* Footer */}
         <p className="text-gray-500 text-sm mt-4 text-center">
-          Forgot password? <a href="/employee/forgot-password" className="text-blue-500">Reset</a>
+          Forgot password?{" "}
+          <a href="/employee/forgot-password" className="text-blue-500">
+            Reset
+          </a>
         </p>
       </div>
     </div>
