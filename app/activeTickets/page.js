@@ -75,14 +75,25 @@ export default function ActiveTicketPage() {
 
       const runningTask = list.find((t) => t.status === "in-progress");
 
-      if (runningTask) {
-        setActiveTaskId(runningTask.id);
-        setIsRunning(true);
+    if (runningTask && runningTask.updatedAt) {
+        const startTimeMs = new Date(runningTask.updatedAt).getTime();
+        
+        // Check if date is valid (not NaN) and not 1970 (greater than 0)
+        if (!isNaN(startTimeMs) && startTimeMs > 0) {
+           setActiveTaskId(runningTask.id);
+           setIsRunning(true);
 
-        const diff = Math.floor(
-          (Date.now() - new Date(runningTask.startTime)) / 1000
-        );
-        setSeconds(diff);
+           const diff = Math.floor(
+             (Date.now() - startTimeMs) / 1000
+           );
+           setSeconds(diff);
+        } else {
+           // Handle invalid date case (e.g. stop timer or show 0)
+           console.error("Invalid start time detected", runningTask.startTime);
+           setActiveTaskId(runningTask.id); // Still show active
+           setSeconds(0); // But reset timer to 0
+           setIsRunning(true);
+        }
       } else {
         setActiveTaskId(null);
         setIsRunning(false);
@@ -132,7 +143,10 @@ export default function ActiveTicketPage() {
   };
 
   /** Format timer */
-  const formatTime = (s) => {
+ const formatTime = (s) => {
+    // Safety check: if s is NaN, null or negative, return 00:00:00
+    if (!s || isNaN(s) || s < 0) return "00:00:00";
+
     const h = Math.floor(s / 3600);
     const m = Math.floor((s % 3600) / 60);
     const sec = s % 60;
@@ -140,7 +154,7 @@ export default function ActiveTicketPage() {
       2,
       "0"
     )}:${String(sec).padStart(2, "0")}`;
-  };
+};
 
   /** Priority color */
   const getPriorityColor = (p) =>
