@@ -11,19 +11,42 @@ export default function ActiveTicketPage() {
   const [isRunning, setIsRunning] = useState(false);
   const [totalHoursToday, setTotalHoursToday] = useState(0);
 
+  // stores values only after hydration
+  const [token, setToken] = useState("");
+  const [userId, setUserId] = useState(null);
+
   const { currentProject } = useProject();
   const projectId = currentProject?.id;
 
   const baseUrl =
     process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api";
 
+  /** Load localStorage safely (browser only) */
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setToken(localStorage.getItem("employeeToken") || "");
+
+      const userStr = localStorage.getItem("employeeUser");
+      if (userStr) {
+        try {
+          const parsed = JSON.parse(userStr);
+          setUserId(parsed.id);
+        } catch {}
+      }
+    }
+  }, []);
+
+  /** Construct headers only after token loaded */
   const getAuthHeaders = () => {
-    const token = localStorage.getItem("employeeToken");
+    if (!token) return {};
     return {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     };
   };
 
+  /** Timer logic */
   useEffect(() => {
     let timer;
     if (isRunning) {
@@ -32,7 +55,10 @@ export default function ActiveTicketPage() {
     return () => clearInterval(timer);
   }, [isRunning]);
 
+  /** Fetch tasks */
   const fetchTasks = async () => {
+    if (!projectId || !token) return;
+
     try {
       const res = await axios.get(
         `${baseUrl}/tasks/my-active-tasks/${projectId}`,
@@ -40,13 +66,13 @@ export default function ActiveTicketPage() {
       );
 
       const list = Array.isArray(res.data.tasks) ? res.data.tasks : [];
+
       const filtered = list.filter(
         (t) => t.status !== "completed" && t.status !== "review"
       );
 
       setTasks(filtered);
 
-      // CHECK if any task is already active (status = in-progress)
       const runningTask = list.find((t) => t.status === "in-progress");
 
       if (runningTask) {
@@ -66,9 +92,12 @@ export default function ActiveTicketPage() {
     }
   };
 
+  /** Start task */
   const startTask = async (task) => {
+    if (!token) return;
+
     try {
-      const res = await axios.post(
+      await axios.post(
         `${baseUrl}/tasks/start/${task.id}`,
         {},
         getAuthHeaders()
@@ -84,7 +113,10 @@ export default function ActiveTicketPage() {
     }
   };
 
+  /** Stop task */
   const stopTask = async (taskId) => {
+    if (!token) return;
+
     try {
       await axios.post(`${baseUrl}/tasks/end/${taskId}`, {}, getAuthHeaders());
 
@@ -92,14 +124,14 @@ export default function ActiveTicketPage() {
       setActiveTaskId(null);
       setSeconds(0);
 
-      // Refresh UI
       await fetchTasks();
-      await fetchWorkHours(); // << fetch total hours after stopping
+      await fetchWorkHours();
     } catch (err) {
       console.error(err);
     }
   };
 
+  /** Format timer */
   const formatTime = (s) => {
     const h = Math.floor(s / 3600);
     const m = Math.floor((s % 3600) / 60);
@@ -110,6 +142,7 @@ export default function ActiveTicketPage() {
     )}:${String(sec).padStart(2, "0")}`;
   };
 
+  /** Priority color */
   const getPriorityColor = (p) =>
     p === "High"
       ? "bg-red-800 text-red-200"
@@ -117,6 +150,7 @@ export default function ActiveTicketPage() {
       ? "bg-yellow-700 text-yellow-200"
       : "bg-green-700 text-green-200";
 
+  /** Send to review */
   const sendToReview = async (taskId) => {
     try {
       await axios.patch(
@@ -125,19 +159,17 @@ export default function ActiveTicketPage() {
         getAuthHeaders()
       );
 
-      // Refresh tasks - review tasks will not be shown
       fetchTasks();
     } catch (err) {
       console.error("Review update failed:", err);
     }
   };
 
+  /** Fetch total work hours */
   const fetchWorkHours = async () => {
-    try {
-      const user = localStorage.getItem("employeeUser");
-      const userId = user ? JSON.parse(user).id : null;
-      if (!userId) return;
+    if (!userId || !token) return;
 
+    try {
       const res = await axios.get(
         `${baseUrl}/task-time/user-one-day/${userId}`,
         getAuthHeaders()
@@ -149,39 +181,29 @@ export default function ActiveTicketPage() {
     }
   };
 
+  /** Load data only after token/user is loaded */
   useEffect(() => {
+    if (!token) return;
     fetchTasks();
     fetchWorkHours();
-  }, [projectId]);
-  // stopTask(taskId).then(() => fetchWorkHours());
+  }, [projectId, token]);
 
   return (
     <div className="min-h-screen bg-slate-950 p-6 text-white flex flex-col items-center">
-
-
-
-       <div className="w-full max-w-xl bg-slate-900 border border-slate-700 rounded-2xl p-6 mb-10 text-center">
+      <div className="w-full max-w-xl bg-slate-900 border border-slate-700 rounded-2xl p-6 mb-10 text-center">
         <h2 className="text-xl mb-2"> Today Worked:</h2>
         <div className="text-5xl font-mono text-green-400">
-              {totalHoursToday.toFixed(2)} hrs 
+          {totalHoursToday.toFixed(2)} hrs
         </div>
       </div>
 
-
-
-      {/* TIMER HEADER */}
       <div className="w-full max-w-xl bg-slate-900 border border-slate-700 rounded-2xl p-6 mb-10 text-center">
         <h2 className="text-xl mb-2">Active Timer</h2>
         <div className="text-5xl font-mono text-green-400">
           {activeTaskId ? formatTime(seconds) : "00:00:00"}
-        
         </div>
       </div>
 
-       
-     
-
-      {/* TASK LIST */}
       <div className="w-full max-w-xl space-y-4">
         {tasks.map((task) => (
           <div
@@ -200,41 +222,39 @@ export default function ActiveTicketPage() {
             </div>
 
             <div className="flex items-center gap-3">
-  {/* PLAY OR STOP */}
-  {task.status === "in-progress" ? (
-    <button
-      onClick={() => stopTask(task.id)}
-      className="p-2 bg-red-600 hover:bg-red-700 rounded-full"
-    >
-      <Square size={20} />
-    </button>
-  ) : (
-    <button
-      onClick={() => startTask(task)}
-      className="p-2 bg-green-600 hover:bg-green-700 rounded-full"
-    >
-      <Play size={20} />
-    </button>
-  )}
+              {task.status === "in-progress" ? (
+                <button
+                  onClick={() => stopTask(task.id)}
+                  className="p-2 bg-red-600 hover:bg-red-700 rounded-full"
+                >
+                  <Square size={20} />
+                </button>
+              ) : (
+                <button
+                  onClick={() => startTask(task)}
+                  className="p-2 bg-green-600 hover:bg-green-700 rounded-full"
+                >
+                  <Play size={20} />
+                </button>
+              )}
 
-  {/* SEND TO REVIEW */}
-  <button
-    onClick={() => sendToReview(task.id)}
-    className="p-2 bg-blue-600 hover:bg-blue-700 rounded-full"
-  >
-    <Send size={20} />
-  </button>
+              <button
+                onClick={() => sendToReview(task.id)}
+                className="p-2 bg-blue-600 hover:bg-blue-700 rounded-full"
+              >
+                <Send size={20} />
+              </button>
 
-  {/* STATUS BADGE */}
-  <div
-    className={`px-3 py-1 rounded-lg text-xs font-semibold text-white text-center min-w-[90px] ${
-      task.status === "in-progress" ? "bg-green-700" : "bg-gray-700"
-    }`}
-  >
-    {task.status}
-  </div>
-</div>
-
+              <div
+                className={`px-3 py-1 rounded-lg text-xs font-semibold text-white text-center min-w-[90px] ${
+                  task.status === "in-progress"
+                    ? "bg-green-700"
+                    : "bg-gray-700"
+                }`}
+              >
+                {task.status}
+              </div>
+            </div>
           </div>
         ))}
       </div>
