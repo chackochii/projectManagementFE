@@ -3,10 +3,11 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import axios from "axios";
-import { Toaster,toast } from "react-hot-toast";
+import { Toaster, toast } from "react-hot-toast";
 
 export default function EmployeeLeavePage() {
   const [loading, setLoading] = useState(false);
+  const [token, setToken] = useState(null);
   const [form, setForm] = useState({
     type: "Sick Leave",
     from: "",
@@ -15,30 +16,26 @@ export default function EmployeeLeavePage() {
   });
 
   const [requests, setRequests] = useState([]);
-  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api";
-  const token = localStorage.getItem("employeeToken");
+  const baseUrl =
+    process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api";
 
-  // Fetch leave requests for the logged-in user
+  // Load token safely (build-safe)
+  useEffect(() => {
+    const storedToken = window.localStorage.getItem("employeeToken");
+    setToken(storedToken);
+  }, []);
+
+  // Fetch leaves only after token is available
   const fetchLeaves = async () => {
     try {
+      if (!token) return; // Prevent request before token exists
 
-      if (!token) {
-        toast.error("User not authenticated");
-        return;
-      }
+      const userId = 1; // Replace with actual dynamic userId
 
-      // Assuming the backend can extract userId from token,
-      // but if not, replace with a dynamic userId
-      const userId = 1; // Replace with actual userId if available
+      const res = await axios.get(`${baseUrl}/leaves/user/${userId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-      const res = await axios.get(
-        `${baseUrl}/leaves/user/${userId}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
-      // Map backend response to table format
       const leaves = res.data.leaves.map((leave) => ({
         id: leave.id,
         type: leave.leaveType,
@@ -55,10 +52,9 @@ export default function EmployeeLeavePage() {
     }
   };
 
-  // Call fetchLeaves on component mount
   useEffect(() => {
-    fetchLeaves();
-  }, []);
+    if (token) fetchLeaves();
+  }, [token]); // Fetch only when token is ready
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -78,15 +74,10 @@ export default function EmployeeLeavePage() {
         reason: form.reason,
       };
 
-      const res = await axios.post(
-        `${baseUrl}/leaves/request`,
-        payload,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const res = await axios.post(`${baseUrl}/leaves/request`, payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-      // Add new leave to top of requests
       const newLeave = {
         id: res.data.leave.id,
         type: res.data.leave.leaveType,
@@ -96,7 +87,7 @@ export default function EmployeeLeavePage() {
         status: res.data.leave.status,
       };
 
-      setRequests([newLeave, ...requests]);
+      setRequests((prev) => [newLeave, ...prev]);
       setForm({ type: "Sick Leave", from: "", to: "", reason: "" });
       toast.success("Leave request submitted!");
     } catch (err) {
