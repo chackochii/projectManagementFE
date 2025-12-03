@@ -1,17 +1,31 @@
-function AssignUsersModal({ project, closeModal, refreshProjects }) {
+import { useState, useEffect } from "react";
+import axios from "axios";
+import { toast } from "react-hot-toast";
+
+export default function AssignUsersModal({ project, closeModal, refreshProjects }) {
   const [users, setUsers] = useState([]);
   const [selectedUsers, setSelectedUsers] = useState([]);
+
   const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
   useEffect(() => {
     fetchUsers();
+
+    // Pre-select already assigned users
+    setSelectedUsers(project.users?.map((u) => u.id) || []);
   }, []);
 
   const fetchUsers = async () => {
     try {
+      const token = localStorage.getItem("employeeToken");
+      if (!token) {
+        window.location.href = "/admin";
+        return;
+      }
+
       const res = await axios.get(`${baseUrl}/users`, {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -31,12 +45,14 @@ function AssignUsersModal({ project, closeModal, refreshProjects }) {
 
   const handleSave = async () => {
     try {
-      const res = await axios.post(
+      const token = localStorage.getItem("employeeToken");
+
+      await axios.post(
         `${baseUrl}/projects/${project.id}/assign-users`,
         { users: selectedUsers },
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            Authorization: `Bearer ${token}`,
           },
         }
       );
