@@ -18,17 +18,29 @@ import axios from "axios";
 
 const COLORS = ["#60a5fa", "#fbbf24", "#34d399"];
 
-export default function ReportsPage() {
+export default function AdminReportsPage() {
   const [contributors, setContributors] = useState([]);
   const [issueStats, setIssueStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [token, setToken] = useState("");
+
   const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
-  // 🔐 Get token from localStorage
-  const getAuthHeaders = () => {
-    const token = localStorage.getItem("token");
-    return { headers: { Authorization: `Bearer ${token}` } };
-  };
+useEffect(() => {
+    if (typeof window !== "undefined") {
+      const storedToken = localStorage.getItem("token") || "";
+      setToken(storedToken);
+    }
+  }, []);
+
+  // Fetch report once token is ready
+  useEffect(() => {
+    if (token) fetchMonthlyReport();
+  }, [token]);
+
+  const getAuthHeaders = () => ({
+    headers: { Authorization: `Bearer ${token}` },
+  });
 
   useEffect(() => {
     fetchMonthlyReport();
