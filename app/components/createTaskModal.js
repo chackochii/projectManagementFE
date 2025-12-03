@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
 
 export default function CreateTaskModal({ onClose, refresh }) {
@@ -11,16 +11,32 @@ export default function CreateTaskModal({ onClose, refresh }) {
     assigneeId: "",
   });
 
-  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api";
+  const [token, setToken] = useState(null);
+  const [user, setUser] = useState(null);
+
+  const baseUrl =
+    process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api";
+
+  useEffect(() => {
+    const savedToken = localStorage.getItem("employeeToken");
+    const savedUser = localStorage.getItem("employeeUser");
+
+    if (savedToken) setToken(savedToken);
+    if (savedUser) setUser(JSON.parse(savedUser));
+  }, []);
 
   const handleCreate = async () => {
     try {
+      if (!token) {
+        alert("No auth token found");
+        return;
+      }
+
       await axios.post(
         `${baseUrl}/tasks`,
         {
           ...task,
-          reporterId: 1, // you can replace this with logged in user
+          reporterId: user?.id,
           status: "backlog",
         },
         {
