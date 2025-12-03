@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import axios from "axios";
 import { motion } from "framer-motion";
 import { FiMail, FiLock } from "react-icons/fi";
@@ -9,7 +9,12 @@ import { toast, Toaster } from "react-hot-toast";
 export default function AdminLoginPage() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+
+  // ENV CHECK (SSR-safe)
+  const baseUrl =
+    typeof process !== "undefined"
+      ? process.env.NEXT_PUBLIC_API_URL
+      : undefined;
 
   const handleInput = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -30,32 +35,36 @@ export default function AdminLoginPage() {
 
       const data = res.data;
 
-      // Save token
-      localStorage.setItem("token", data.token);
+      /** ---- SAFE localStorage access ---- **/
+      if (typeof window !== "undefined") {
+        localStorage.setItem("token", data.token);
+      }
 
       toast.success("Login Successful!");
-      window.location.href = "/admin/dashboard";
+
+      if (typeof window !== "undefined") {
+        window.location.href = "/admin/dashboard";
+      }
     } catch (err) {
-      console.log("ERR:", err.response.status);
+      console.log("ERR:", err?.response?.status);
 
-    if (err.response?.status == 401) {
-      toast.error(err.response?.data?.error || "Invalid credentials");
-      return;
-    }
-
-    toast.error(err.response?.data?.error || "Login Failed");
+      if (err.response?.status == 401) {
+        toast.error(err.response?.data?.error || "Invalid credentials");
+      } else {
+        toast.error(err.response?.data?.error || "Login Failed");
+      }
     } finally {
       setLoading(false);
     }
   };
 
-
+  // Prevent hydration issues if env missing
   if (!baseUrl) return null;
-
 
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-    <Toaster position="top-right" />
+      <Toaster position="top-right" />
+
       <motion.div
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}
