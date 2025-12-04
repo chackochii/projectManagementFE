@@ -131,7 +131,7 @@ useEffect(() => {
       ?.split(" ")
       ?.map((word) => word[0])
       ?.join("")
-      ?.slice(0, 2) || "U"}
+      ?.slice(0, 2) || ""}
   </div>
 
   <div className="text-sm">
