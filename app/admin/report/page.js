@@ -24,54 +24,83 @@ export default function AdminReportsPage() {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState("");
 
+  // Filters
+  const [dateRange, setDateRange] = useState("month"); // today | week | month
+  const [selectedUser, setSelectedUser] = useState("all");
+  const [selectedProject, setSelectedProject] = useState("all");
+
+  // Data for dropdowns
+  const [userList, setUserList] = useState([]);
+  const [projectList, setProjectList] = useState([]);
+
   const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
-useEffect(() => {
+  useEffect(() => {
     if (typeof window !== "undefined") {
       const storedToken = localStorage.getItem("token") || "";
       setToken(storedToken);
     }
   }, []);
 
-  // Fetch report once token is ready
   useEffect(() => {
-    if (token) fetchMonthlyReport();
+    if (token) {
+      fetchBaseData();
+    }
   }, [token]);
 
-  const getAuthHeaders = () => ({
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  // Load users/projects for filters
+  const fetchBaseData = async () => {
+    try {
+      const usersRes = await axios.get(`${baseUrl}/users`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const projectsRes = await axios.get(`${baseUrl}/projects`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      setUserList(usersRes.data || []);
+      setProjectList(projectsRes.data?.data || []);
+
+      fetchMonthlyReport();
+    } catch (error) {
+      console.log("Base fetch error", error);
+    }
+  };
 
   useEffect(() => {
-    fetchMonthlyReport();
-  }, []);
+    if (token) {
+      fetchMonthlyReport();
+    }
+  }, [dateRange, selectedUser, selectedProject]);
 
   const fetchMonthlyReport = async () => {
     try {
       setLoading(true);
 
-      // 🔥 Your updated backend API route
-      const res = await axios.get(
-        `${baseUrl}/tasks/monthly`,
-        getAuthHeaders()
-      );
+      const res = await axios.get(`${baseUrl}/tasks/monthly`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params: {
+          range: dateRange, // today | week | month
+          userId: selectedUser !== "all" ? selectedUser : undefined,
+          projectId: selectedProject !== "all" ? selectedProject : undefined,
+        },
+      });
 
       const data = res.data;
 
-      // ⬅️ Backend sends: employees + summary
-    setContributors(
-  data.employees?.map((e) => ({
-    name: e.employee,
-    tasks: e.totalTasks,
-    hours: e.hoursWorked,
-    totalTasks: e.totalTasks,
-    todo: e.todo,
-    inProgress: e.inProgress,
-    review: e.review,
-    done: e.done,
-  })) || []
-);
-
+      setContributors(
+        data.employees?.map((e) => ({
+          name: e.employee,
+          tasks: e.totalTasks,
+          hours: e.hoursWorked,
+          totalTasks: e.totalTasks,
+          todo: e.todo,
+          inProgress: e.inProgress,
+          review: e.review,
+          done: e.done,
+        })) || []
+      );
 
       setIssueStats(data.summary || {});
     } catch (err) {
@@ -84,12 +113,11 @@ useEffect(() => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-xl text-white">
-        Loading monthly report...
+        Loading reports...
       </div>
     );
   }
 
-  // 🥧 Pie Chart Data
   const pieData = [
     { name: "To Do", value: issueStats?.todo || 0 },
     { name: "In Progress", value: issueStats?.inProgress || 0 },
@@ -98,11 +126,60 @@ useEffect(() => {
 
   return (
     <div className="p-4 md:p-6 text-white">
+
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">Monthly Report</h1>
-        <p className="text-slate-400">Analytics for tasks completed this month.</p>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold">Monthly Report</h1>
+          <p className="text-slate-400">Analytics for tasks and performance.</p>
+        </div>
+
+        {/* Filters */}
+        <div className="flex flex-wrap gap-3 mt-4 md:mt-0">
+
+          {/* Date Range Filter */}
+          <select
+            value={dateRange}
+            onChange={(e) => setDateRange(e.target.value)}
+            className="bg-slate-800 border border-slate-700 px-3 py-2 rounded-lg text-sm"
+          >
+            <option value="today">Today</option>
+            <option value="week">This Week</option>
+            <option value="month">This Month</option>
+          </select>
+
+          {/* Users Filter */}
+          <select
+            value={selectedUser}
+            onChange={(e) => setSelectedUser(e.target.value)}
+            className="bg-slate-800 border border-slate-700 px-3 py-2 rounded-lg text-sm"
+          >
+            <option value="all">All Employees</option>
+            {userList.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name}
+              </option>
+            ))}
+          </select>
+
+          {/* Project Filter */}
+          <select
+            value={selectedProject}
+            onChange={(e) => setSelectedProject(e.target.value)}
+            className="bg-slate-800 border border-slate-700 px-3 py-2 rounded-lg text-sm"
+          >
+            <option value="all">All Projects</option>
+            {projectList.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
+
+      {/* --- REST OF YOUR CHARTS BELOW (UNCHANGED) --- */}
+
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
