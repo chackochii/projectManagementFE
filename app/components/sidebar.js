@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   FiHome, FiGrid, FiList, FiBarChart2,
-  FiUser, FiMenu, FiX, FiChevronDown, FiBook
+  FiUser, FiMenu, FiX, FiChevronDown, FiBook, FiLogOut,FiFile
 } from "react-icons/fi";
 
 import { useProject } from "../context/ProjectContext";
@@ -15,14 +15,22 @@ export default function Sidebar() {
   const [showProjects, setShowProjects] = useState(false);
   const [user, setUser] = useState(null);
 
-  const nav = [
-    { href: "/dashboard", label: "Dashboard", icon: <FiHome /> },
-    { href: "/board", label: "Board", icon: <FiGrid /> },
-    { href: "/backlog", label: "Backlog", icon: <FiList /> },
-    { href: "/reports", label: "Reports", icon: <FiBarChart2 /> },
-    { href: "/leave", label: "Leave Management", icon: <FiUser /> },
-    { href: "/activeTickets", label: "Active Tickets", icon: <FiBook /> },
-  ];
+const username = user?.name;
+const role = user?.role;
+
+const nav = [
+  { href: "/dashboard", label: "Dashboard", icon: <FiHome /> },
+  { href: "/board", label: "Board", icon: <FiGrid /> },
+  { href: "/backlog", label: "Backlog", icon: <FiList /> },
+  { href: "/reports", label: "Reports", icon: <FiBarChart2 /> },
+  { href: "/leave", label: "Leave Management", icon: <FiUser /> },
+  { href: "/activeTickets", label: "Active Tickets", icon: <FiBook /> },
+
+  // 🔥 Show only for project manager role
+  ...(role === "project_manager"
+    ? [{ href: "/projects", label: "Project Management", icon: <FiFile /> }]
+    : []),
+];
 
   const handleNavClick = () => {
     if (window.innerWidth < 768) setOpen(false);
@@ -32,8 +40,7 @@ useEffect(() => {
   const saved = localStorage.getItem("employeeUser");
   if (saved) setUser(JSON.parse(saved));
 }, []);
-  const username = user?.name;
-  const role = user?.role;
+
 
   return (
     <>
@@ -92,6 +99,8 @@ useEffect(() => {
               )}
             </div>
 
+           
+
             {/* Navigation */}
             <nav className="flex flex-col gap-2">
               {nav.map((n) => (
@@ -108,22 +117,49 @@ useEffect(() => {
             </nav>
           </div>
 
+          
+
           {/* User Footer */}
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-slate-700 overflow-hidden">
-              <img
-                src="https://i.pravatar.cc/40?img=1"
-                alt="avatar"
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <div className="text-sm">
-              <div className="text-slate-200">{username}</div>
-              <div className="text-slate-400 text-xs">{role}</div>
-            </div>
-          </div>
+     {/* User Footer */}
+<div className="flex flex-col gap-3">
+  
+  {/* User Info */}
+<div className="flex items-center gap-3">
+  {/* Initials Avatar */}
+  <div className="w-9 h-9 flex items-center justify-center rounded-full bg-indigo-600 text-white font-semibold uppercase">
+    {username
+      ?.split(" ")
+      ?.map((word) => word[0])
+      ?.join("")
+      ?.slice(0, 2) || "U"}
+  </div>
+
+  <div className="text-sm">
+    <div className="text-slate-200">{username}</div>
+    <div className="text-slate-400 text-xs">{role}</div>
+  </div>
+</div>
+
+
+  {/* Logout Button */}
+  <button
+    onClick={() => {
+      localStorage.removeItem("employeeUser");
+      localStorage.removeItem("token");
+      window.location.href = "/login";
+    }}
+    className="flex items-center gap-2 mt-2 p-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition"
+  >
+    <FiLogOut size={18} />
+    <span>Logout</span>
+  </button>
+
+</div>
+
         </div>
       </aside>
+
+      
 
       {open && (
         <div
