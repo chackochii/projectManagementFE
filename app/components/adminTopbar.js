@@ -28,7 +28,10 @@ export default function AdminTopbar() {
         <FiBell className="text-slate-300 w-5 h-5 cursor-pointer hover:text-white transition" />
 
         {/* Avatar */}
-        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-700" />
+        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-indigo-600 
+            flex items-center justify-center text-white font-semibold text-sm">
+  AD
+</div>
       </div>
     </header>
   );
