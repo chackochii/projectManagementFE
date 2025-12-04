@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { FiUsers, FiCalendar, FiHome, FiMenu, FiX, FiFile, FiDisc } from "react-icons/fi";
+import { FiUsers, FiCalendar, FiHome, FiMenu, FiX, FiFile, FiDisc, FiLogOut } from "react-icons/fi";
 
 export default function AdminSidebar() {
   const [open, setOpen] = useState(false);
@@ -27,36 +27,56 @@ export default function AdminSidebar() {
       </div>
 
       {/* Sidebar */}
-      <aside
-        className={`
-          fixed top-0 left-0 h-full w-64 bg-slate-950 border-r border-slate-800 z-40 
-          transform transition-transform duration-300 
-          ${open ? "translate-x-0" : "-translate-x-full"} 
-          md:translate-x-0
-        `}
-      >
-        <div className="p-6 flex justify-between items-center border-b border-slate-800">
-          <h2 className="text-xl font-bold">Admin Panel</h2>
-          <button className="md:hidden" onClick={() => setOpen(false)}>
-            <FiX size={22} />
-          </button>
-        </div>
+<aside
+  className={`
+    fixed top-0 left-0 h-full w-64 bg-slate-950 border-r border-slate-800 z-40 
+    transform transition-transform duration-300 
+    ${open ? "translate-x-0" : "-translate-x-full"} 
+    md:translate-x-0
+  `}
+>
+  <div className="p-6 flex justify-between items-center border-b border-slate-800">
+    <h2 className="text-xl font-bold">Admin Panel</h2>
+    <button className="md:hidden" onClick={() => setOpen(false)}>
+      <FiX size={22} />
+    </button>
+  </div>
 
-        {/* Nav Items */}
-        <nav className="p-4 flex flex-col gap-2">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition"
-            >
-              <span className="text-slate-400">{item.icon}</span>
-              <span>{item.label}</span>
-            </Link>
-          ))}
-        </nav>
-      </aside>
+  {/* FIXED HEIGHT WRAPPER */}
+  <div className="flex flex-col justify-between h-[calc(100%-80px)]">
+
+    {/* Nav Items */}
+    <nav className="p-4 flex flex-col gap-2 overflow-y-auto">
+      {navItems.map((item) => (
+        <Link
+          key={item.href}
+          href={item.href}
+          onClick={() => setOpen(false)}
+          className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition"
+        >
+          <span className="text-slate-400">{item.icon}</span>
+          <span>{item.label}</span>
+        </Link>
+      ))}
+    </nav>
+
+    {/* Logout Button */}
+    <button
+      onClick={() => {
+        localStorage.removeItem("token");
+        window.location.href = "/admin/adminLogin";
+        setOpen(false);
+      }}
+      className="m-4 flex items-center gap-3 px-4 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition"
+    >
+      <FiLogOut />
+      <span>Logout</span>
+    </button>
+
+  </div>
+</aside>
+
+
 
       {/* Dark overlay on mobile */}
       {open && (
