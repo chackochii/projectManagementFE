@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   FiHome, FiGrid, FiList, FiBarChart2,
-  FiUser, FiMenu, FiX, FiChevronDown, FiBook, FiLogOut,FiFile
+  FiUser, FiMenu, FiX, FiChevronDown, FiBook, FiLogOut,FiFile,FiFlag
 } from "react-icons/fi";
 
 import { useProject } from "../context/ProjectContext";
@@ -29,6 +29,10 @@ const nav = [
   // 🔥 Show only for project manager role
   ...(role === "project_manager"
     ? [{ href: "/projects", label: "Project Management", icon: <FiFile /> }]
+    : []),
+
+     ...(role === "project_manager"
+    ? [{ href: "/dummy", label: "Micro Management", icon: <FiFlag /> }]
     : []),
 ];
 
