@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import {
   Layers,
-  Loader,
+  BookOpen,
   Bug,
   CheckCircle2,
   Users,
@@ -150,7 +150,7 @@ useEffect(() => {
       title: "In Progress",
       value: userStats.inProgress,
       desc: "Currently working",
-      icon: <Loader className="w-5 h-5 text-slate-400" />,
+      icon: <BookOpen className="w-5 h-5 text-slate-400" />,
     },
     {
       id: 3,
