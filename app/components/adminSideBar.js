@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { FiUsers, FiCalendar, FiHome, FiMenu, FiX, FiFile, FiDisc, FiLogOut } from "react-icons/fi";
+import { FiUsers, FiCalendar, FiHome, FiMenu, FiX, FiFile, FiDisc, FiLogOut, FiUserCheck } from "react-icons/fi";
 
 export default function AdminSidebar() {
   const [open, setOpen] = useState(false);
@@ -13,6 +13,7 @@ export default function AdminSidebar() {
      { label: "Reports", href: "/admin/report", icon: <FiDisc /> },
      { label: "Leave Management", href: "/admin/leaves", icon: <FiCalendar /> },
       { label: "Projects", href: "/admin/projects", icon: <FiFile /> },
+        { label: "Clients", href: "/admin/clients", icon: <FiUserCheck /> },
   ];
 
   return (
