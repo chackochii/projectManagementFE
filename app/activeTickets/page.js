@@ -70,41 +70,40 @@ export default function ActiveTicketPage() {
   // --------------------------------------------------------------------
   // 📌 FETCH TASKS
   // --------------------------------------------------------------------
-  const fetchTasks = async () => {
-    if (!projectId || !token) return;
+ const fetchTasks = async () => {
+  if (!projectId || !token) return;
 
-    try {
-      const res = await axios.get(
-        `${baseUrl}/tasks/my-active-tasks/${projectId}`,
-        getAuthHeaders()
-      );
+  try {
+    const res = await axios.get(
+      `${baseUrl}/tasks/my-active-tasks/${projectId}`,
+      getAuthHeaders()
+    );
 
-      const list = res.data.tasks || [];
-      const filtered = list.filter(
-        (t) => t.status !== "completed" && t.status !== "review"
-      );
+    const list = res.data.tasks || [];
+    const filtered = list.filter(
+      (t) => t.status !== "completed" && t.status !== "review"
+    );
 
-      setTasks(filtered);
+    setTasks(filtered);
 
-      const runningTask = filtered.find((t) => t.status === "in-progress");
+    const timers = {};
+    let runningTaskId = null;
 
-      if (runningTask) {
-        setActiveTaskId(runningTask.id);
+    filtered.forEach((task) => {
+      timers[task.id] = computeTaskSeconds(task);
 
-        // Restore previous hoursTaken
-        const baseSeconds = runningTask.hoursTaken || 0;
-
-        setTaskTimers((prev) => ({
-          ...prev,
-          [runningTask.id]: baseSeconds,
-        }));
-      } else {
-        setActiveTaskId(null);
+      if (task.status === "in-progress") {
+        runningTaskId = task.id;
       }
-    } catch (err) {
-      console.error("Fetch tasks error:", err);
-    }
-  };
+    });
+
+    setTaskTimers(timers);
+    setActiveTaskId(runningTaskId);
+  } catch (err) {
+    console.error("Fetch tasks error:", err);
+  }
+};
+
 
   // --------------------------------------------------------------------
   // ▶️ START TASK
@@ -199,6 +198,22 @@ export default function ActiveTicketPage() {
       ? "bg-yellow-700 text-yellow-200"
       : "bg-green-700 text-green-200";
 
+
+
+      const computeTaskSeconds = (task) => {
+  let seconds = task.hoursTaken || 0;
+
+  if (task.status === "in-progress" && task.startTime) {
+    const startedAt = new Date(task.startTime).getTime();
+    const now = Date.now();
+    const liveSeconds = Math.floor((now - startedAt) / 1000);
+    seconds += liveSeconds;
+  }
+
+  return seconds;
+};
+
+
   return (
   <div className="min-h-screen bg-slate-950 p-6 text-white flex flex-col items-center">
 
@@ -280,9 +295,7 @@ export default function ActiveTicketPage() {
 
         {/* TIMER BELOW BUTTONS */}
         <div className="text-green-400 font-mono text-lg text-center">
-          {task.status === "in-progress"
-            ? formatTime(taskTimers[task.id] || 0)
-            : "00:00:00"}
+          {formatTime(taskTimers[task.id] || task.hoursTaken || 0)}
         </div>
       </div>
     </div>
