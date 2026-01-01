@@ -1,1 +1,7 @@
-// dummy user page
+export default function DummyPage() {
+  return (
+    <div>
+      Dummy Page
+    </div>
+  );
+}
