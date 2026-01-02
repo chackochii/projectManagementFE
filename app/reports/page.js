@@ -24,11 +24,11 @@ export default function ReportsPage() {
   const [issueData, setIssueData] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 🔥 TOKEN + USER stored safely in state
   const [token, setToken] = useState("");
   const [username, setUsername] = useState("");
+  const [range, setRange] = useState("month"); // Filter: today, week, month
 
-  // Load localStorage ONLY on client
+  // Load auth data from localStorage
   useEffect(() => {
     if (typeof window !== "undefined") {
       const storedToken = localStorage.getItem("employeeToken") || "";
@@ -38,17 +38,21 @@ export default function ReportsPage() {
     }
   }, []);
 
-  // Fetch report AFTER token + username is loaded
+  // Fetch report data
   useEffect(() => {
-    if (!token || !username) return; // wait until loaded
+    if (!token || !username) return;
 
     const fetchReport = async () => {
+      setLoading(true);
       try {
         const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
-        const res = await axios.get(`${baseUrl}/tasks/monthly`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await axios.get(
+          `${baseUrl}/tasks/monthly?range=${range}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
 
         const report = res.data;
 
@@ -59,14 +63,13 @@ export default function ReportsPage() {
         setContributorData(
           userOnly.map((e) => ({
             name: e.employee,
-            tasks: e.totalTasks,
-            hours: e.hoursWorked,
+            totalTasks: e.totalTasks,
+            hoursWorked: e.hoursWorked,
           }))
         );
 
         // PIE CHART — Global summary
         const summary = report.summary || {};
-
         setIssueData([
           { name: "To Do", value: summary.todo || 0 },
           { name: "In Progress", value: summary.inProgress || 0 },
@@ -80,101 +83,103 @@ export default function ReportsPage() {
     };
 
     fetchReport();
-  }, [token, username]);
+  }, [token, username, range]);
 
   if (loading) {
     return (
       <div className="p-6 text-center text-xl text-slate-300">
-        Loading monthly report...
+        Loading report...
       </div>
     );
   }
 
-
   return (
     <div className="p-4 md:p-6">
-      {/* Page Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">Monthly Reports</h1>
-        <p className="text-slate-400">
-          Analyze project progress and team performance.
-        </p>
+      {/* Header */}
+      <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Reports</h1>
+          <p className="text-slate-400">
+            Analyze project progress and performance
+          </p>
+        </div>
+
+        {/* Filter */}
+        <select
+          value={range}
+          onChange={(e) => setRange(e.target.value)}
+          className="bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        >
+          <option value="today">Today</option>
+          <option value="week">Last 7 Days</option>
+          <option value="month">Last 30 Days</option>
+        </select>
       </div>
 
-      {/* Charts Section */}
+      {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Contributor Progress (Bar Chart) */}
+        {/* Bar Chart */}
         <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl">
-          <h2 className="text-xl font-semibold mb-1">Contributor Progress</h2>
+          <h2 className="text-xl font-semibold mb-1">
+            Contributor Progress
+          </h2>
           <p className="text-slate-400 text-sm mb-6">
-            Tasks completed by team members.
+            Your total tasks and hours worked
           </p>
 
-          <div className="w-full h-72 md:h-80">
+          <div className="w-full h-72">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={contributorData}>
                 <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" />
-                <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} />
-                <YAxis stroke="#94a3b8" fontSize={12} />
+                <XAxis dataKey="name" stroke="#94a3b8" />
+                <YAxis stroke="#94a3b8" />
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#1e293b",
-                    border: "1px solid #334155",
-                    borderRadius: "8px",
-                  }}
-                  labelStyle={{ color: "#fff" }}
+                  formatter={(value, name) => [
+                    value,
+                    name === "totalTasks" ? "Total Tasks" : "Hours Worked",
+                  ]}
                 />
-                <Bar dataKey="tasks" fill="#818cf8" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="hours" fill="#82ca9d" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="totalTasks" fill="#fbbf24" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="hoursWorked" fill="#60a5fa" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Issue Distribution (Pie Chart) */}
-        <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl">
-          <h2 className="text-xl font-semibold mb-1">Issue Distribution</h2>
-          <p className="text-slate-400 text-sm mb-6">
-            Overview of issue status in the project.
-          </p>
+        {/* Pie Chart */}
+       {/* Pie Chart */}
+<div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl">
+  <h2 className="text-xl font-semibold mb-1">
+    Issue Distribution
+  </h2>
 
-          <div className="w-full h-72 md:h-80 flex justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={issueData}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius="70%"
-                  dataKey="value"
-                  label={({ name, percent }) =>
-                    `${name}: ${(percent * 100).toFixed(0)}%`
-                  }
-                  labelStyle={{ fontSize: 12, fill: "#cbd5e1" }}
-                >
-                  {issueData.map((entry, index) => (
-                    <Cell key={index} fill={COLORS[index]} />
-                  ))}
-                </Pie>
+  <div className="w-full h-72">
+    <ResponsiveContainer width="100%" height="100%">
+      <PieChart>
+        <Pie
+          // Filter out zero-value slices
+          data={issueData.filter((item) => item.value > 0)}
+          cx="50%"
+          cy="50%"
+          outerRadius="70%"
+          dataKey="value"
+          label={({ name, percent }) =>
+            `${name}: ${(percent * 100).toFixed(0)}%`
+          }
+        >
+          {issueData
+            .filter((item) => item.value > 0)
+            .map((_, index) => (
+              <Cell key={index} fill={COLORS[index]} />
+            ))}
+        </Pie>
+        <Legend />
+        <Tooltip />
+      </PieChart>
+    </ResponsiveContainer>
+  </div>
+</div>
 
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#1e293b",
-                    border: "1px solid #334155",
-                    borderRadius: "8px",
-                  }}
-                  labelStyle={{ color: "#fff" }}
-                />
-
-                <Legend
-                  verticalAlign="bottom"
-                  height={32}
-                  wrapperStyle={{ color: "#cbd5e1", fontSize: 12 }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
       </div>
     </div>
   );
