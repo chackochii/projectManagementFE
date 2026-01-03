@@ -14,6 +14,11 @@ export default function BacklogPage() {
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState([]);
   const [token, setToken] = useState(null);
+
+  const [isAssigneeModalOpen, setIsAssigneeModalOpen] = useState(false);
+const [selectedTask, setSelectedTask] = useState(null);
+const [selectedAssignee, setSelectedAssignee] = useState("");
+
   const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
 
@@ -244,6 +249,59 @@ const handleStartSprint = async () => {
   //   </div>
   // );
 
+
+  const handleAssignUser = async () => {
+  if (!selectedTask || !selectedAssignee) return;
+
+  try {
+    await axios.patch(
+      `${baseUrl}/tasks/assign`,
+      {
+        taskId: selectedTask.id,
+        assigneeId: selectedAssignee,
+      },
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
+    toast.success("Task assigned successfully");
+    await fetchBacklog();
+    closeAssigneeModal();
+  } catch (err) {
+    toast.error("Failed to assign user");
+  }
+};
+
+const handleUnassignUser = async () => {
+  if (!selectedTask) return;
+
+  try {
+    await axios.patch(
+      `${baseUrl}/tasks/unassign`,
+      {
+        taskId: selectedTask.id,
+      },
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
+    toast.success("Task unassigned successfully");
+    await fetchBacklog();
+    closeAssigneeModal();
+  } catch (err) {
+    toast.error("Failed to unassign user");
+  }
+};
+
+const closeAssigneeModal = () => {
+  setIsAssigneeModalOpen(false);
+  setSelectedTask(null);
+  setSelectedAssignee("");
+};
+
+
   return (
     <div className="min-h-screen bg-[#0b1120] px-8 py-6">
        <Toaster position="top-right" />
@@ -375,7 +433,17 @@ const handleStartSprint = async () => {
                         </span>
                       </div>
 
-                      <div>{task.name}</div>
+                     <div
+  className="cursor-pointer text-blue-400 hover:underline"
+  onClick={() => {
+    setSelectedTask(task);
+    setSelectedAssignee(task.assigneeId || "");
+    setIsAssigneeModalOpen(true);
+  }}
+>
+  {task.assigneeId ? task.name : "Unassigned"}
+</div>
+
                       <div>Sprint {task.sprintId}</div>
                     </div>
                   )}
@@ -490,6 +558,73 @@ const handleStartSprint = async () => {
           </div>
         </div>
       )}
+
+
+      {isAssigneeModalOpen && selectedTask && (
+  <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+    <div className="bg-[#0f172a] p-6 rounded-xl w-[400px] border border-[#243349]">
+      
+      <h2 className="text-white text-lg font-semibold mb-4">
+        Manage Assignee
+      </h2>
+
+      {/* If assigned → show Unassign */}
+      {selectedTask.assigneeId ? (
+        <>
+          <p className="text-gray-300 mb-4">
+            Currently assigned to <span className="text-white font-medium">
+              {selectedTask.name}
+            </span>
+          </p>
+
+          <button
+            onClick={handleUnassignUser}
+            className="w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg"
+          >
+            Unassign
+          </button>
+        </>
+      ) : (
+        <>
+          <label className="text-gray-300 text-sm">Assign User</label>
+          <select
+            className="w-full bg-[#1e293b] text-white p-2 rounded-lg mt-2 border border-[#243349]"
+            value={selectedAssignee}
+            onChange={(e) => setSelectedAssignee(e.target.value)}
+          >
+            <option value="">Select User</option>
+            {users.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name || `User ${u.id}`}
+              </option>
+            ))}
+          </select>
+
+          <button
+            onClick={handleAssignUser}
+            disabled={!selectedAssignee}
+            className={`w-full mt-4 py-2 rounded-lg text-white
+              ${
+                selectedAssignee
+                  ? "bg-blue-600 hover:bg-blue-700"
+                  : "bg-blue-400 cursor-not-allowed"
+              }`}
+          >
+            Assign
+          </button>
+        </>
+      )}
+
+      <button
+        onClick={closeAssigneeModal}
+        className="w-full mt-3 text-gray-400 hover:text-white"
+      >
+        Cancel
+      </button>
+    </div>
+  </div>
+)}
+
 
     </div>
   );
