@@ -105,6 +105,11 @@ export default function ActiveTicketPage() {
 };
 
 
+const getTodayWorkedSeconds = () => {
+  return Object.values(taskTimers).reduce((sum, sec) => sum + sec, 0);
+};
+
+
   // --------------------------------------------------------------------
   // ▶️ START TASK
   // --------------------------------------------------------------------
@@ -200,7 +205,7 @@ export default function ActiveTicketPage() {
 
 
 
-      const computeTaskSeconds = (task) => {
+const computeTaskSeconds = (task) => {
   let seconds = task.hoursTaken || 0;
 
   if (task.status === "in-progress" && task.startTime) {
@@ -214,6 +219,7 @@ export default function ActiveTicketPage() {
 };
 
 
+
   return (
   <div className="min-h-screen bg-slate-950 p-6 text-white flex flex-col items-center">
 
@@ -221,7 +227,7 @@ export default function ActiveTicketPage() {
   <div className="w-full max-w-xl bg-slate-900 border border-slate-700 rounded-2xl p-6 mb-10 text-center">
     <h2 className="text-xl mb-2"> Today Worked: </h2>
     <div className="text-5xl font-mono text-green-400">
-    {formatTime( totalHoursToday + (activeTaskId ? liveSeconds : 0))}
+      {formatTime(getTodayWorkedSeconds())}
     </div>
   </div>
 
