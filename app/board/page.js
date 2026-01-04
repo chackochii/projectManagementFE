@@ -1,9 +1,28 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { DragDropContext } from "@hello-pangea/dnd";
 import Column from "../components/column";
 import { Toaster, toast } from "react-hot-toast";
 import { useProject } from "../context/ProjectContext";
+
+// =====================
+// Fetch with Timeout
+// =====================
+const fetchWithTimeout = async (url, options = {}, timeout = 8000) => {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  } catch (err) {
+    console.error("Fetch failed:", err.message);
+    return []; // fallback to empty array
+  } finally {
+    clearTimeout(id);
+  }
+};
 
 export default function Board() {
   const [columns, setColumns] = useState([
@@ -12,37 +31,33 @@ export default function Board() {
     { id: "review", title: "Review", tasks: [] },
     { id: "done", title: "Done", tasks: [] },
   ]);
-
   const [loading, setLoading] = useState(false);
   const [token, setToken] = useState("");
 
   const { currentProject } = useProject();
   const projectId = currentProject?.id;
-
-useEffect(() => {
-  if (typeof window !== "undefined") {
-    setToken(localStorage.getItem("employeeToken"));
-  }
-}, []);
+  const hasFetched = useRef(false);
 
   const baseUrl =
-    process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api";
+    process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
 
-  // ============================================================
+  // ============================
   // Fetch Tasks
-  // ============================================================
+  // ============================
   const fetchTasks = async () => {
+    if (!projectId || !token) return;
     setLoading(true);
-    try {
-      const statuses = ["todo", "in-progress", "review", "done"];
 
+    const statuses = ["todo", "in-progress", "review", "done"];
+
+    try {
       const requests = statuses.map((status) =>
-        fetch(`${baseUrl}/tasks/status/${status}/${projectId}`, {
+        fetchWithTimeout(`${baseUrl}/tasks/status/${status}/${projectId}`, {
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-        }).then((res) => res.json())
+        })
       );
 
       const results = await Promise.all(requests);
@@ -70,65 +85,75 @@ useEffect(() => {
   };
 
   useEffect(() => {
-    if (projectId) fetchTasks();
+    if (typeof window !== "undefined") {
+      setToken(localStorage.getItem("employeeToken") || "");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!hasFetched.current && projectId && token) {
+      hasFetched.current = true;
+      fetchTasks();
+    }
   }, [projectId, token]);
 
-  // ============================================================
-  // Drag & Drop Logic (Forward Only)
-  // ============================================================
-  const onDragEnd = async (result) => {
-    const { source, destination, draggableId } = result;
+  // ============================
+  // Task Mutations with Timeout
+  // ============================
+  const startTask = (taskId) =>
+    fetchWithTimeout(`${baseUrl}/tasks/start/${taskId}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    });
+
+  const endTask = (taskId) =>
+    fetchWithTimeout(`${baseUrl}/tasks/end/${taskId}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    });
+
+  const updateStatus = (taskId, status) =>
+    fetchWithTimeout(`${baseUrl}/tasks/status`, {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ id: taskId, status }),
+    });
+
+  // ============================
+  // Drag & Drop Logic
+  // ============================
+  const onDragEnd = async ({ source, destination, draggableId }) => {
     if (!destination) return;
 
     const sourceColId = source.droppableId;
     const destColId = destination.droppableId;
 
     const order = ["todo", "in-progress", "review", "done"];
-
     const sourceIndex = order.indexOf(sourceColId);
     const destIndex = order.indexOf(destColId);
 
-    // ❌ Block backwards movement
     if (destIndex < sourceIndex) {
       toast.error("You can only move tasks forward.");
       return;
     }
 
-    // ❌ Block dragging inside Done
     if (sourceColId === "done") return;
 
-    // Same column reorder (except done)
-    if (sourceColId === destColId && sourceColId !== "done") {
-      setColumns((prev) =>
-        prev.map((col) => {
-          if (col.id !== sourceColId) return col;
-
-          const newTasks = Array.from(col.tasks);
-          const [moved] = newTasks.splice(source.index, 1);
-          newTasks.splice(destination.index, 0, moved);
-
-          return { ...col, tasks: newTasks };
-        })
-      );
-      return;
-    }
-
-    // ❌ Only allow EXACT next stage
     if (destIndex !== sourceIndex + 1) {
       toast.error("You can only move tasks to the next stage.");
       return;
     }
 
-    // Move task forward
+    // Optimistic UI update
     setColumns((prev) => {
       const sourceCol = prev.find((c) => c.id === sourceColId);
       const destCol = prev.find((c) => c.id === destColId);
 
       const sourceTasks = Array.from(sourceCol.tasks);
-      const [movedTask] = sourceTasks.splice(source.index, 1);
+      const [task] = sourceTasks.splice(source.index, 1);
 
       const destTasks = Array.from(destCol.tasks);
-      destTasks.splice(destination.index, 0, movedTask);
+      destTasks.splice(destination.index, 0, task);
 
       return prev.map((c) => {
         if (c.id === sourceColId) return { ...c, tasks: sourceTasks };
@@ -137,32 +162,27 @@ useEffect(() => {
       });
     });
 
-    // Update backend
     try {
-      await fetch(`${baseUrl}/tasks/status`, {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ id: draggableId, status: destColId }),
-      });
+      if (sourceColId === "todo" && destColId === "in-progress") await startTask(draggableId);
+      if (sourceColId === "in-progress" && destColId === "review") await endTask(draggableId);
+      await updateStatus(draggableId, destColId);
     } catch (err) {
-      console.error("Failed to update task status:", err);
+      toast.error("Failed to update task");
+      fetchTasks(); // rollback
     }
   };
 
-  // ============================================================
+  // ============================
 
   return (
     <div>
-      <div className="mb-6">
-        <Toaster position="top-right" />
-        <h1 className="text-3xl font-bold">Board</h1>
-        <p className="text-slate-400">Visualize and manage your project workflow.</p>
-      </div>
+      <Toaster position="top-right" />
+      <h1 className="text-3xl font-bold mb-2">Board</h1>
+      <p className="text-slate-400 mb-6">
+        Visualize and manage your project workflow.
+      </p>
 
-      {loading && <p className="text-white mb-4">Loading tasks...</p>}
+      {loading && <p className="text-white">Loading tasks...</p>}
 
       <DragDropContext onDragEnd={onDragEnd}>
         <div className="flex gap-6 overflow-x-auto pb-6">
