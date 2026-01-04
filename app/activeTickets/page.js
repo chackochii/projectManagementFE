@@ -104,14 +104,15 @@ export default function ActiveTicketPage() {
   /* =====================================================
      START / STOP
   ===================================================== */
-  const startTask = async (task) => {
-    await axios.post(
-      `${baseUrl}/tasks/start/${task.id}`,
-      {
-        ...getAuthHeaders(),
-        timeout: 10000,
-      }
-    );
+const startTask = async (task) => {
+  await axios.post(
+    `${baseUrl}/tasks/start/${task.id}`,
+    {}, // ✅ empty body
+    {
+      ...getAuthHeaders(),
+      timeout: 10000,
+    }
+  );
 
     setActiveTaskId(task.id);
     setActiveTaskStartTime(Date.now());
