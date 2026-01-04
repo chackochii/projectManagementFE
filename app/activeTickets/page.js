@@ -7,11 +7,10 @@ import { useProject } from "../context/ProjectContext";
 export default function ActiveTicketPage() {
   const [tasks, setTasks] = useState([]);
   const [activeTaskId, setActiveTaskId] = useState(null);
+  const [activeTaskStartTime, setActiveTaskStartTime] = useState(null);
 
-  const [taskTimers, setTaskTimers] = useState({});
-  const [liveSeconds, setLiveSeconds] = useState(0); // For today-worked live update
-
-  const [totalHoursToday, setTotalHoursToday] = useState(0);
+  const [totalSecondsFromBackend, setTotalSecondsFromBackend] = useState(0);
+  const [now, setNow] = useState(Date.now());
 
   const [token, setToken] = useState("");
   const [userId, setUserId] = useState(null);
@@ -20,63 +19,46 @@ export default function ActiveTicketPage() {
   const projectId = currentProject?.id;
 
   const baseUrl =
-    process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api";
+    process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
 
-  /** Load auth info */
+  /* =====================================================
+     AUTH
+  ===================================================== */
   useEffect(() => {
     if (typeof window !== "undefined") {
       setToken(localStorage.getItem("employeeToken") || "");
-
       const user = localStorage.getItem("employeeUser");
       if (user) setUserId(JSON.parse(user).id);
     }
   }, []);
 
-  /** Auth headers */
-  const getAuthHeaders = () => {
-    if (!token) return {};
-    return { headers: { Authorization: `Bearer ${token}` } };
-  };
+  const getAuthHeaders = () => ({
+    headers: { Authorization: `Bearer ${token}` },
+  });
 
-  // --------------------------------------------------------------------
-  // 🕒 GLOBAL “TODAY WORKED” LIVE TIMER
-  // --------------------------------------------------------------------
+  /* =====================================================
+     GLOBAL TICK (DRIVES ALL TIMERS)
+  ===================================================== */
   useEffect(() => {
-    if (!activeTaskId) return;
-
     const interval = setInterval(() => {
-      setLiveSeconds((prev) => prev + 1);
+      setNow(Date.now());
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [activeTaskId]);
+  }, []);
 
-  // --------------------------------------------------------------------
-  // 🕒 PER-TASK LIVE TIMER (RESUME FROM hoursTaken)
-  // --------------------------------------------------------------------
-  useEffect(() => {
-    if (!activeTaskId) return;
+  /* =====================================================
+     FETCH TASKS
+  ===================================================== */
+  const fetchTasks = async () => {
+    if (!projectId || !token) return;
 
-    const interval = setInterval(() => {
-      setTaskTimers((prev) => ({
-        ...prev,
-        [activeTaskId]: (prev[activeTaskId] || 0) + 1,
-      }));
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [activeTaskId]);
-
-  // --------------------------------------------------------------------
-  // 📌 FETCH TASKS
-  // --------------------------------------------------------------------
- const fetchTasks = async () => {
-  if (!projectId || !token) return;
-
-  try {
     const res = await axios.get(
       `${baseUrl}/tasks/my-active-tasks/${projectId}`,
-      getAuthHeaders()
+      {
+        ...getAuthHeaders(),
+        timeout: 10000,
+      }
     );
 
     const list = res.data.tasks || [];
@@ -86,64 +68,69 @@ export default function ActiveTicketPage() {
 
     setTasks(filtered);
 
-    const timers = {};
-    let runningTaskId = null;
+    const running = filtered.find(
+      (t) => t.status === "in-progress" && t.startTime
+    );
 
-    filtered.forEach((task) => {
-      timers[task.id] = computeTaskSeconds(task);
+    if (running) {
+      setActiveTaskId(running.id);
+      setActiveTaskStartTime(new Date(running.startTime).getTime());
+    } else {
+      setActiveTaskId(null);
+      setActiveTaskStartTime(null);
+    }
+  };
 
-      if (task.status === "in-progress") {
-        runningTaskId = task.id;
-      }
-    });
+  /* =====================================================
+     FETCH TODAY WORKED (BACKEND)
+  ===================================================== */
+  const fetchWorkHours = async () => {
+    if (!userId) return;
 
-    setTaskTimers(timers);
-    setActiveTaskId(runningTaskId);
-  } catch (err) {
-    console.error("Fetch tasks error:", err);
-  }
-};
+    const res = await axios.get(
+      `${baseUrl}/task-time/user-one-day/${userId}`,
+      getAuthHeaders()
+    );
 
+    setTotalSecondsFromBackend(res.data.totalHours || 0);
+  };
 
-const getTodayWorkedSeconds = () => {
-  return Object.values(taskTimers).reduce((sum, sec) => sum + sec, 0);
-};
+  useEffect(() => {
+     if (!token || !userId || !projectId) return;
+    fetchTasks();
+    fetchWorkHours();
+  }, [projectId, token]);
 
-
-  // --------------------------------------------------------------------
-  // ▶️ START TASK
-  // --------------------------------------------------------------------
+  /* =====================================================
+     START / STOP
+  ===================================================== */
   const startTask = async (task) => {
-     setActiveTaskId(task.id);
-    await axios.post(`${baseUrl}/tasks/start/${task.id}`, {}, getAuthHeaders());
+    await axios.post(
+      `${baseUrl}/tasks/start/${task.id}`,
+      {
+        ...getAuthHeaders(),
+        timeout: 10000,
+      }
+    );
 
-   
-
-    // Resume from backend hoursTaken
-    setTaskTimers((prev) => ({
-      ...prev,
-      [task.id]: task.hoursTaken || 0,
-    }));
-
+    setActiveTaskId(task.id);
+    setActiveTaskStartTime(Date.now());
     fetchTasks();
   };
 
-  // --------------------------------------------------------------------
-  // ⏹ STOP TASK
-  // --------------------------------------------------------------------
   const stopTask = async (taskId) => {
-    await axios.post(`${baseUrl}/tasks/end/${taskId}`, {}, getAuthHeaders());
+    await axios.post(
+      `${baseUrl}/tasks/end/${taskId}`,
+      {},
+      getAuthHeaders()
+    );
 
-    // DO NOT reset timer — keep final value
     setActiveTaskId(null);
-
+    setActiveTaskStartTime(null);
     fetchTasks();
-    setTimeout(fetchWorkHours, 600);
+    fetchWorkHours();
   };
 
-  // --------------------------------------------------------------------
-  // 📌 SEND TO REVIEW
-  // --------------------------------------------------------------------
   const sendToReview = async (taskId) => {
     await axios.patch(
       `${baseUrl}/tasks/status`,
@@ -152,41 +139,33 @@ const getTodayWorkedSeconds = () => {
     );
 
     fetchTasks();
-    setTimeout(fetchWorkHours, 500);
-  };
-
-  // --------------------------------------------------------------------
-  // 🕒 FETCH TOTAL HOURS TODAY
-  // --------------------------------------------------------------------
-  const fetchWorkHours = async () => {
-    if (!userId) return;
-
-    try {
-      const res = await axios.get(
-        `${baseUrl}/task-time/user-one-day/${userId}`,
-        getAuthHeaders()
-      );
-
-      setTotalHoursToday(res.data.totalHours);
-    } catch (err) {
-      console.error("Failed to fetch work hours:", err);
-    }
-  };
-
-  // --------------------------------------------------------------------
-  // INITIAL LOAD
-  // --------------------------------------------------------------------
-  useEffect(() => {
-    if (!token) return;
-    fetchTasks();
     fetchWorkHours();
-  }, [projectId, token]);
+  };
 
-  // --------------------------------------------------------------------
-  // FORMAT TIME
-  // --------------------------------------------------------------------
-  const formatTime = (s) => {
-    if (!s) s = 0;
+  /* =====================================================
+     DERIVED TIMERS (NO STATE DRIFT)
+  ===================================================== */
+  const getTodayWorkedSeconds = () => {
+    if (!activeTaskStartTime) return totalSecondsFromBackend;
+    return (
+      totalSecondsFromBackend +
+      Math.floor((now - activeTaskStartTime) / 1000)
+    );
+  };
+
+  const getTaskSeconds = (task) => {
+    let seconds = task.hoursTaken || 0;
+
+    if (task.status === "in-progress" && task.startTime) {
+      seconds += Math.floor(
+        (now - new Date(task.startTime).getTime()) / 1000
+      );
+    }
+
+    return seconds;
+  };
+
+  const formatTime = (s = 0) => {
     const h = Math.floor(s / 3600);
     const m = Math.floor((s % 3600) / 60);
     const sec = s % 60;
@@ -203,115 +182,76 @@ const getTodayWorkedSeconds = () => {
       ? "bg-yellow-700 text-yellow-200"
       : "bg-green-700 text-green-200";
 
-
-
-const computeTaskSeconds = (task) => {
-  let seconds = task.hoursTaken || 0;
-
-  if (task.status === "in-progress" && task.startTime) {
-    const startedAt = new Date(task.startTime).getTime();
-    const now = Date.now();
-    const liveSeconds = Math.floor((now - startedAt) / 1000);
-    seconds += liveSeconds;
-  }
-
-  return seconds;
-};
-
-
-
+  /* =====================================================
+     UI
+  ===================================================== */
   return (
-  <div className="min-h-screen bg-slate-950 p-6 text-white flex flex-col items-center">
+    <div className="min-h-screen bg-slate-950 p-6 text-white flex flex-col items-center">
 
-  {/* TODAY WORKED CARD */}
-  <div className="w-full max-w-xl bg-slate-900 border border-slate-700 rounded-2xl p-6 mb-10 text-center">
-    <h2 className="text-xl mb-2"> Today Worked: </h2>
-    <div className="text-5xl font-mono text-green-400">
-      {formatTime(getTodayWorkedSeconds())}
-    </div>
+      <div className="w-full max-w-xl bg-slate-900 border border-slate-700 rounded-2xl p-6 mb-10 text-center">
+        <h2 className="text-xl mb-2">Today Worked</h2>
+        <div className="text-5xl font-mono text-green-400">
+          {formatTime(getTodayWorkedSeconds())}
+        </div>
+      </div>
+
+      <div className="w-full max-w-xl space-y-4">
+        {tasks.map((task) => (
+          <div
+            key={task.id}
+            className="bg-slate-900 border border-slate-700 rounded-2xl p-4 flex justify-between items-center"
+          >
+            <div>
+              <div className="flex gap-2 mb-2">
+                <span className={`px-3 py-1 rounded-lg text-sm ${getPriorityColor(task.priority)}`}>
+                  {task.priority}
+                </span>
+                <span className="px-3 py-1 rounded-lg bg-gray-700 text-sm">
+                  {task.status}
+                </span>
+              </div>
+              <div className="text-lg">{task.title}</div>
+            </div>
+
+           <div className="flex flex-col items-center gap-2">
+
+  {/* Buttons row */}
+  <div className="flex items-center gap-3">
+    {task.status === "in-progress" ? (
+      <button
+        onClick={() => stopTask(task.id)}
+        className="p-2 bg-red-600 rounded-full"
+      >
+        <Square size={18} />
+      </button>
+    ) : (
+      <button
+        onClick={() => startTask(task)}
+        disabled={activeTaskId && activeTaskId !== task.id}
+        className="p-2 bg-green-600 rounded-full disabled:bg-gray-600"
+      >
+        <Play size={18} />
+      </button>
+    )}
+
+    <button
+      onClick={() => sendToReview(task.id)}
+      className="p-2 bg-blue-600 rounded-full"
+    >
+      <Send size={18} />
+    </button>
   </div>
 
+  {/* Timer below buttons */}
+  <div className="font-mono text-green-400 text-sm">
+    {formatTime(getTaskSeconds(task))}
+  </div>
 
+</div>
 
- {/* TASK LIST */}
-<div className="w-full max-w-xl space-y-4">
-  {tasks.map((task) => (
-    <div
-      key={task.id}
-      className="bg-slate-900 border border-slate-700 rounded-2xl p-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4"
-    >
-      {/* LEFT SIDE */}
-      <div className="flex flex-col gap-2 flex-1">
-        {/* Priority + Status */}
-        <div className="flex items-center gap-2">
-          <span
-            className={`px-3 py-1 rounded-lg text-sm ${getPriorityColor(
-              task.priority
-            )}`}
-          >
-            {task.priority}
-          </span>
-
-          <span
-            className={`px-3 py-1 rounded-lg text-sm font-semibold text-white
-              ${task.status === "in-progress" ? "bg-green-700" : "bg-gray-700"}
-            `}
-          >
-            {task.status}
-          </span>
-        </div>
-
-        {/* Title */}
-        <div className="text-lg">{task.title}</div>
-      </div>
-
-      {/* RIGHT SIDE BUTTONS + TIMER */}
-      <div className="flex flex-col items-center sm:items-end gap-3">
-        <div className="flex items-center gap-3">
-          {task.status === "in-progress" ? (
-            <button
-              onClick={() => stopTask(task.id)}
-              className="p-2 bg-red-600 hover:bg-red-700 rounded-full"
-            >
-              <Square size={20} />
-            </button>
-          ) : (
-            <button
-              onClick={() => startTask(task)}
-              disabled={activeTaskId && activeTaskId !== task.id}
-              className={`p-2 rounded-full 
-                ${
-                  activeTaskId && activeTaskId !== task.id
-                    ? "bg-gray-600 cursor-not-allowed"
-                    : "bg-green-600 hover:bg-green-700"
-                }
-              `}
-            >
-              <Play size={20} />
-            </button>
-          )}
-
-          <button
-            onClick={() => sendToReview(task.id)}
-            className="p-2 bg-blue-600 hover:bg-blue-700 rounded-full"
-          >
-            <Send size={20} />
-          </button>
-        </div>
-
-        {/* TIMER BELOW BUTTONS */}
-        <div className="text-green-400 font-mono text-lg text-center">
-          {formatTime(taskTimers[task.id] || task.hoursTaken || 0)}
-        </div>
+          </div>
+        ))}
       </div>
     </div>
-  ))}
-</div>
-
-
-
-
-</div>
-
   );
 }
