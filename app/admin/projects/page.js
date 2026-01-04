@@ -40,15 +40,13 @@ export default function ProjectListPage() {
   }, []);
 
   const getAuthHeaders = () => ({
-    headers: { Authorization: `Bearer ${localStorage.getItem("employeeToken")}` },
+    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
   });
 
   const fetchProjects = async () => {
     try {
       setLoading(true);
-      const user = localStorage.getItem("employeeUser");
-      const userId = (JSON.parse(user)?.id || null);
-      const res = await axios.get(`${baseUrl}/project-members/user/${userId}/projects`, getAuthHeaders());
+      const res = await axios.get(`${baseUrl}/projects/`, getAuthHeaders());
       const data = res.data.data || [];
 
       setProjects(data);
@@ -236,133 +234,181 @@ function StatCard({ title, value }) {
 
 
 
-function CreateProjectModal({ closeModal, refreshProjects }) {
- const [form, setForm] = useState({
-  name: "",
-  description: "",
-  clientName:  "",
-  clientId: "",
-  status: "active",
-});
+
+ function CreateProjectModal({ closeModal, refreshProjects }) {
+  const [form, setForm] = useState({
+    name: "",
+    description: "",
+    status: "active",
+    clientId: "",
+  });
+
   const [clients, setClients] = useState([]);
+  const [loadingClients, setLoadingClients] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+  const baseUrl =
+    process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
 
+  /* ============================
+     AUTH HEADERS
+  ============================ */
+  const getAuthHeaders = () => ({
+    Authorization:
+      typeof window !== "undefined"
+        ? `Bearer ${localStorage.getItem("token")}`
+        : "",
+  });
+
+  /* ============================
+     FETCH CLIENTS
+  ============================ */
+  useEffect(() => {
+    fetchClients();
+  }, []);
+
+const fetchClients = async () => {
+  try {
+    setLoadingClients(true);
+
+    const res = await fetch(`${baseUrl}/clients`, {
+      headers: {
+        ...getAuthHeaders(),
+      },
+    });
+
+    const json = await res.json();
+
+    // FIX: API returns array directly
+    setClients(Array.isArray(json) ? json : []);
+  } catch (err) {
+    console.error("Fetch clients failed", err);
+    setClients([]);
+  } finally {
+    setLoadingClients(false);
+  }
+};
+
+
+  /* ============================
+     FORM HANDLERS
+  ============================ */
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    setForm((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (!form.clientId) {
+      toast.error("Please select a client");
+      return;
+    }
+
     try {
-        const token = localStorage.getItem("employeeToken");
+      setSubmitting(true);
+
       const res = await fetch(`${baseUrl}/projects`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          ...getAuthHeaders(),
         },
         body: JSON.stringify(form),
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to create project");
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Failed to create project");
 
-      toast.success("Project created successfully!");
+      toast.success("Project created successfully");
       refreshProjects();
       closeModal();
     } catch (err) {
       toast.error(err.message);
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  useEffect(() => {
-  fetchClients();
-}, []);
-
-const fetchClients = async () => {
-  try {
-    const res = await axios.get(`${baseUrl}/clients/`);
-    setClients(res.data || []);
-  } catch (err) {
-    console.error(err);
-    toast.error("Failed to load clients");
-    setClients([]);
-  }
-};
-
-
+  /* ============================
+     UI
+  ============================ */
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50">
-      <div className="bg-slate-900 p-6 rounded-xl w-full max-w-lg border border-slate-700">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-slate-900 w-full max-w-lg rounded-xl border border-slate-700 p-6">
 
-        <h2 className="text-xl font-semibold mb-4">Create New Project</h2>
+        <h2 className="text-xl font-semibold mb-4 text-white">
+          Create New Project
+        </h2>
 
-        <form className="space-y-4" onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="space-y-4">
 
+          {/* PROJECT NAME */}
           <div>
             <label className="text-sm text-slate-300">Project Name</label>
             <input
-              type="text"
-              required
               name="name"
+              required
               value={form.name}
               onChange={handleChange}
-              className="w-full mt-1 p-2 rounded bg-slate-800 border border-slate-700"
+              className="w-full mt-1 p-2 rounded bg-slate-800 border border-slate-700 text-white"
             />
           </div>
 
+          {/* DESCRIPTION */}
           <div>
             <label className="text-sm text-slate-300">Description</label>
             <textarea
               name="description"
               value={form.description}
               onChange={handleChange}
-              className="w-full mt-1 p-2 rounded bg-slate-800 border border-slate-700"
+              className="w-full mt-1 p-2 rounded bg-slate-800 border border-slate-700 text-white"
             />
           </div>
 
+          {/* CLIENT LIST */}
+          <div>
+            <label className="text-sm text-slate-300">Client</label>
 
-          <div className="mb-4">
-  <label className="block text-sm text-gray-300 mb-1">Select Client</label>
-
-<select
-  name="clientId"
-  value={form.clientId}
-  onChange={(e) => {
-    const selectedClientId = Number(e.target.value);
-    const selectedClient = clients.find(
-      (c) => Number(c.id) === selectedClientId
-    );
-
-    setForm((prev) => ({
-      ...prev,
-      clientId: selectedClientId,
-      clientName: selectedClient?.clientName || "",
-    }));
-  }}
-  className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-gray-200"
->
-  <option value="">-- Select Client --</option>
+            <select
+              name="clientId"
+              value={form.clientId}
+              onChange={handleChange}
+              required
+              className="w-full mt-1 p-2 rounded bg-slate-800 border border-slate-700 text-white"
+            >
+               <option value="">Select client</option>
   {clients.map((client) => (
     <option key={client.id} value={client.id}>
       {client.name}
     </option>
   ))}
-</select>
+            </select>
 
+            {loadingClients && (
+              <p className="text-xs text-slate-400 mt-1">
+                Loading clients...
+              </p>
+            )}
 
-</div>
+            {!loadingClients && clients.length === 0 && (
+              <p className="text-xs text-red-400 mt-1">
+                No clients found
+              </p>
+            )}
+          </div>
 
-
+          {/* STATUS */}
           <div>
             <label className="text-sm text-slate-300">Status</label>
             <select
               name="status"
               value={form.status}
               onChange={handleChange}
-              className="w-full mt-1 p-2 rounded bg-slate-800 border border-slate-700"
+              className="w-full mt-1 p-2 rounded bg-slate-800 border border-slate-700 text-white"
             >
               <option value="active">Active</option>
               <option value="on-hold">On Hold</option>
@@ -371,19 +417,22 @@ const fetchClients = async () => {
             </select>
           </div>
 
-          <div className="flex justify-end gap-3 mt-4">
+          {/* ACTIONS */}
+          <div className="flex justify-end gap-3 pt-4">
             <button
               type="button"
               onClick={closeModal}
-              className="px-4 py-2 bg-slate-700 rounded-lg hover:bg-slate-600"
+              className="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white"
             >
               Cancel
             </button>
+
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700"
+              disabled={submitting}
+              className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white"
             >
-              Create Project
+              {submitting ? "Creating..." : "Create Project"}
             </button>
           </div>
 
@@ -394,6 +443,8 @@ const fetchClients = async () => {
 }
 
 
+
+
 function AssignUserModal({ project, closeModal }) {
   const [users, setUsers] = useState([]);
   const [assignedUsers, setAssignedUsers] = useState([]);
@@ -402,7 +453,7 @@ function AssignUserModal({ project, closeModal }) {
 
  const getAuthHeaders = () => {
   if (typeof window === "undefined") return {}; // Prevent server-side access
-  const token = localStorage.getItem("employeeToken");
+  const token = localStorage.getItem("token");
   return {
     headers: {
       Authorization: `Bearer ${token}`,
