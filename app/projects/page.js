@@ -28,7 +28,6 @@ export default function ProjectListPage() {
     const handleResize = () => {
       setIsMobile(window.innerWidth <= 640);
     };
-
     handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
@@ -48,7 +47,7 @@ export default function ProjectListPage() {
       setLoading(true);
       const user = localStorage.getItem("employeeUser");
       const userId = (JSON.parse(user)?.id || null);
-      const res = await axios.get(`${baseUrl}/project-members/user/${userId}/projects`, getAuthHeaders());
+      const res = await axios.get(`${baseUrl}/project-members/user/${userId}/projects`, getAuthHeaders(), { timeout: 10000 });
       const data = res.data.data || [];
 
       setProjects(data);
@@ -237,14 +236,14 @@ function StatCard({ title, value }) {
 
 
 function CreateProjectModal({ closeModal, refreshProjects }) {
-  const [form, setForm] = useState({
-    name: "",
-    description: "",
-    clientName: "",
-    clientEmail: "",
-    clientPhone: "",
-    status: "active",
-  });
+ const [form, setForm] = useState({
+  name: "",
+  description: "",
+  clientName:  "",
+  clientId: "",
+  status: "active",
+});
+  const [clients, setClients] = useState([]);
 
   const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
@@ -277,6 +276,22 @@ function CreateProjectModal({ closeModal, refreshProjects }) {
     }
   };
 
+  useEffect(() => {
+  fetchClients();
+}, []);
+
+const fetchClients = async () => {
+  try {
+    const res = await axios.get(`${baseUrl}/clients/`);
+    setClients(res.data || []);
+  } catch (err) {
+    console.error(err);
+    toast.error("Failed to load clients");
+    setClients([]);
+  }
+};
+
+
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50">
       <div className="bg-slate-900 p-6 rounded-xl w-full max-w-lg border border-slate-700">
@@ -307,38 +322,38 @@ function CreateProjectModal({ closeModal, refreshProjects }) {
             />
           </div>
 
-          <div>
-            <label className="text-sm text-slate-300">Client Name</label>
-            <input
-              type="text"
-              name="clientName"
-              value={form.clientName}
-              onChange={handleChange}
-              className="w-full mt-1 p-2 rounded bg-slate-800 border border-slate-700"
-            />
-          </div>
 
-          <div>
-            <label className="text-sm text-slate-300">Client Email</label>
-            <input
-              type="email"
-              name="clientEmail"
-              value={form.clientEmail}
-              onChange={handleChange}
-              className="w-full mt-1 p-2 rounded bg-slate-800 border border-slate-700"
-            />
-          </div>
+          <div className="mb-4">
+  <label className="block text-sm text-gray-300 mb-1">Select Client</label>
 
-          <div>
-            <label className="text-sm text-slate-300">Client Phone</label>
-            <input
-              type="text"
-              name="clientPhone"
-              value={form.clientPhone}
-              onChange={handleChange}
-              className="w-full mt-1 p-2 rounded bg-slate-800 border border-slate-700"
-            />
-          </div>
+<select
+  name="clientId"
+  value={form.clientId}
+  onChange={(e) => {
+    const selectedClientId = Number(e.target.value);
+    const selectedClient = clients.find(
+      (c) => Number(c.id) === selectedClientId
+    );
+
+    setForm((prev) => ({
+      ...prev,
+      clientId: selectedClientId,
+      clientName: selectedClient?.clientName || "",
+    }));
+  }}
+  className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-gray-200"
+>
+  <option value="">-- Select Client --</option>
+  {clients.map((client) => (
+    <option key={client.id} value={client.id}>
+      {client.name}
+    </option>
+  ))}
+</select>
+
+
+</div>
+
 
           <div>
             <label className="text-sm text-slate-300">Status</label>
