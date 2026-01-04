@@ -19,6 +19,13 @@ export default function ClientPage() {
 
   const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
+  if (!baseUrl) {
+  console.error("API URL is missing!");
+  toast.error("Server URL not configured");
+  return;
+}
+
+
   // Load token from localStorage
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -39,7 +46,7 @@ export default function ClientPage() {
   const fetchClients = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${baseUrl}/clients`, getAuthHeaders());
+      const res = await axios.get(`${baseUrl}/clients`, { ...getAuthHeaders(),  timeout: 6000 });
       setClients(res.data || []);
     } catch (err) {
       console.error("Fetch clients error:", err);
@@ -56,7 +63,7 @@ export default function ClientPage() {
     try {
       toast.loading("Adding client...", { id: "client" });
 
-      const res = await axios.post(`${baseUrl}/clients`, newClient, getAuthHeaders());
+      const res = await axios.post(`${baseUrl}/clients`, newClient, { ...getAuthHeaders(),  timeout: 6000 });
 
       toast.success("Client added successfully!", { id: "client" });
 
