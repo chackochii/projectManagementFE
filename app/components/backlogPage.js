@@ -215,6 +215,10 @@ export default function BacklogPage() {
     setSelectedTask(null);
     setSelectedAssignee("");
   };
+  const openAssigneeModal = (task) => {
+  setSelectedTask(task);
+  setIsAssigneeModalOpen(true);
+};
 
   // ---------------- TASK ROW ----------------
   const TaskRow = ({ task, provided }) => (
@@ -266,12 +270,12 @@ export default function BacklogPage() {
 </button>
           </div>
 
-          <Droppable droppableId="currentSprint">
+<Droppable droppableId="currentSprint">
   {(provided) => (
     <div
       ref={provided.innerRef}
       {...provided.droppableProps}
-      className="min-h-[150px] bg-[#0f172a] border border-[#243349] rounded-xl overflow-hidden"
+      className="bg-[#0f172a] border border-[#243349] rounded-xl overflow-hidden"
     >
       {currentSprintIssues.length === 0 ? (
         <div className="text-gray-500 text-center py-10 border border-dashed border-gray-600 rounded-lg">
@@ -279,8 +283,8 @@ export default function BacklogPage() {
         </div>
       ) : (
         <>
-          {/* Table Header */}
-          <div className="grid grid-cols-6 bg-[#1e293b] text-gray-300 px-4 py-3 border-b border-[#243349]">
+          {/* Desktop Header */}
+          <div className="hidden md:grid md:grid-cols-6 bg-[#1e293b] text-gray-300 px-4 py-3 border-b border-[#243349]">
             <div>ID</div>
             <div>Title</div>
             <div>Description</div>
@@ -289,10 +293,77 @@ export default function BacklogPage() {
             <div>Sprint</div>
           </div>
 
-          {/* Table Rows */}
+          {/* Rows */}
           {currentSprintIssues.map((task, index) => (
             <Draggable key={task.id} draggableId={task.id} index={index}>
-              {(provided) => <TaskRow task={task} provided={provided} />}
+              {(provided) => (
+                <div
+                  ref={provided.innerRef}
+                  {...provided.draggableProps}
+                  {...provided.dragHandleProps}
+                  className="border-b border-[#243349] hover:bg-[#1e293b] cursor-grab p-4 text-gray-300"
+                >
+                  {/* Mobile Card */}
+                  <div className="md:hidden space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-white font-semibold">
+                        {task.title}
+                      </span>
+                      <span className="text-xs text-gray-400">
+                        #{task.id}
+                      </span>
+                    </div>
+
+                    <p className="text-sm text-gray-400">
+                      {task.description}
+                    </p>
+
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={`px-2 py-1 rounded text-xs capitalize ${
+                          task.priority === "high"
+                            ? "bg-red-500/20 text-red-400"
+                            : task.priority === "medium"
+                            ? "bg-yellow-500/20 text-yellow-400"
+                            : "bg-green-500/20 text-green-400"
+                        }`}
+                      >
+                        {task.priority}
+                      </span>
+
+                      <span className="text-sm text-blue-400">
+                        {task.assigneeId ? task.name : "Unassigned"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Desktop Row */}
+                  <div className="hidden md:grid md:grid-cols-6 md:px-4 md:py-3">
+                    <div>{task.id}</div>
+                    <div className="font-medium text-white">{task.title}</div>
+                    <div>{task.description}</div>
+                    <div>
+                      <span
+                        className={`px-2 py-1 rounded text-xs capitalize ${
+                          task.priority === "high"
+                            ? "bg-red-500/20 text-red-400"
+                            : task.priority === "medium"
+                            ? "bg-yellow-500/20 text-yellow-400"
+                            : "bg-green-500/20 text-green-400"
+                        }`}
+                      >
+                        {task.priority}
+                      </span>
+                    </div>
+                    <div>
+                      {task.assigneeId ? task.name : "Unassigned"}
+                    </div>
+                    <div>
+                      {task.sprintId ? `Sprint ${task.sprintId}` : "Backlog"}
+                    </div>
+                  </div>
+                </div>
+              )}
             </Draggable>
           ))}
         </>
@@ -301,6 +372,7 @@ export default function BacklogPage() {
     </div>
   )}
 </Droppable>
+
 
         </div>
 
@@ -319,73 +391,108 @@ export default function BacklogPage() {
           </button>
         </div>
 
-        <Droppable droppableId="backlog">
+    <Droppable droppableId="backlog">
+  {(provided) => (
+    <div
+      ref={provided.innerRef}
+      {...provided.droppableProps}
+      className="bg-[#0f172a] border border-[#243349] rounded-xl overflow-hidden"
+    >
+      {/* Header */}
+      <div className="hidden md:grid md:grid-cols-6 bg-[#1e293b] text-gray-300 px-4 py-3 border-b border-[#243349]">
+        <div>ID</div>
+        <div>Title</div>
+        <div>Description</div>
+        <div>Priority</div>
+        <div>Assignee</div>
+        <div>Sprint</div>
+      </div>
+
+      {/* Rows */}
+      {backlogIssues.map((task, index) => (
+        <Draggable key={task.id} draggableId={task.id} index={index}>
           {(provided) => (
             <div
               ref={provided.innerRef}
-              {...provided.droppableProps}
-              className="bg-[#0f172a] border border-[#243349] rounded-xl overflow-hidden"
+              {...provided.draggableProps}
+              {...provided.dragHandleProps}
+              className="border-b border-[#243349] hover:bg-[#1e293b] cursor-grab p-4 text-gray-300"
             >
+              {/* Mobile */}
+              <div className="md:hidden space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-white font-semibold">
+                    {task.title}
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    #{task.id}
+                  </span>
+                </div>
 
-              {/* Table Header */}
-              <div className="grid grid-cols-6 bg-[#1e293b] text-gray-300 px-4 py-3 border-b border-[#243349]">
-                <div>ID</div>
-                <div>Title</div>
-                <div>Description</div>
-                <div>Priority</div>
-                <div>Assignee</div>
-                <div>Sprint</div>
-              </div>
+                <p className="text-sm text-gray-400">
+                  {task.description}
+                </p>
 
-              {/* Table Rows */}
-              {backlogIssues.map((task, index) => (
-                <Draggable key={task.id} draggableId={task.id} index={index}>
-                  {(provided) => (
-                    <div
-                      ref={provided.innerRef}
-                      {...provided.draggableProps}
-                      {...provided.dragHandleProps}
-                      className="grid grid-cols-6 px-4 py-3 text-gray-300 hover:bg-[#1e293b] border-b border-[#243349] cursor-grab"
-                    >
-                      <div>{task.id}</div>
-                      <div className="font-medium text-white">{task.title}</div>
-                      <div>{task.description}</div>
+                <div className="flex items-center justify-between">
+                  <span
+                    className={`px-2 py-1 rounded text-xs capitalize ${
+                      task.priority === "high"
+                        ? "bg-red-500/20 text-red-400"
+                        : task.priority === "medium"
+                        ? "bg-yellow-500/20 text-yellow-400"
+                        : "bg-green-500/20 text-green-400"
+                    }`}
+                  >
+                    {task.priority}
+                  </span>
 
-                      <div>
-                        <span
-                          className={`px-2 py-1 rounded text-xs capitalize ${
-                            task.priority === "high"
-                              ? "bg-red-500/20 text-red-400"
-                              : task.priority === "medium"
-                              ? "bg-yellow-500/20 text-yellow-400"
-                              : "bg-green-500/20 text-green-400"
-                          }`}
-                        >
-                          {task.priority}
-                        </span>
-                      </div>
-
-                     <div
-  className="cursor-pointer text-blue-400 hover:underline"
-  onClick={() => {
-    setSelectedTask(task);
-    setSelectedAssignee(task.assigneeId || "");
-    setIsAssigneeModalOpen(true);
-  }}
+                 <div
+  onClick={() => openAssigneeModal(task)}
+  className="text-blue-400 cursor-pointer hover:underline"
 >
   {task.assigneeId ? task.name : "Unassigned"}
 </div>
 
-                      <div>Sprint {task.sprintId}</div>
-                    </div>
-                  )}
-                </Draggable>
-              ))}
+                </div>
+              </div>
 
-              {provided.placeholder}
+              {/* Desktop */}
+              <div className="hidden md:grid md:grid-cols-6 md:px-4 md:py-3">
+                <div>{task.id}</div>
+                <div className="font-medium text-white">{task.title}</div>
+                <div>{task.description}</div>
+                <div>
+                  <span
+                    className={`px-2 py-1 rounded text-xs capitalize ${
+                      task.priority === "high"
+                        ? "bg-red-500/20 text-red-400"
+                        : task.priority === "medium"
+                        ? "bg-yellow-500/20 text-yellow-400"
+                        : "bg-green-500/20 text-green-400"
+                    }`}
+                  >
+                    {task.priority}
+                  </span>
+                </div>
+              <div
+  onClick={() => openAssigneeModal(task)}
+  className="text-blue-400 cursor-pointer hover:underline"
+>
+  {task.assigneeId ? task.name : "Unassigned"}
+</div>
+
+                <div>Backlog</div>
+              </div>
             </div>
           )}
-        </Droppable>
+        </Draggable>
+      ))}
+
+      {provided.placeholder}
+    </div>
+  )}
+</Droppable>
+
       </DragDropContext>
 
       {/* CREATE ISSUE MODAL */}
@@ -587,6 +694,6 @@ const TaskRow = ({ task, provided }) => (
       </span>
     </div>
     <div>User {task.assigneeId}</div>
-    <div>{task.sprintId ? `Sprint ${task.sprintId}` : "Backlog"}</div>
+    <div>{task.sprintId ?? null}</div>
   </div>
 );
