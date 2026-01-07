@@ -19,11 +19,33 @@ export default function ClientPage() {
 
   const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
+useEffect(() => {
   if (!baseUrl) {
-  console.error("API URL is missing!");
-  toast.error("Server URL not configured");
-  return;
+    console.error("API URL is missing!");
+    toast.error("Server URL not configured");
+  }
+}, [baseUrl]);
+
+if (!baseUrl) {
+  return (
+    <div className="p-4 text-red-400">
+      Application misconfigured. Please contact support.
+    </div>
+  );
 }
+
+
+useEffect(() => {
+  const controller = new AbortController();
+
+  if (token) {
+    fetchClients(controller.signal);
+  }
+
+  return () => controller.abort();
+}, [token]);
+
+
 
 
   // Load token from localStorage
@@ -34,9 +56,9 @@ export default function ClientPage() {
     }
   }, []);
 
-  useEffect(() => {
-    if (token) fetchClients();
-  }, [token]);
+  // useEffect(() => {
+  //   if (token) fetchClients();
+  // }, [token]);
 
   const getAuthHeaders = () => ({
     headers: { Authorization: `Bearer ${token}` },
@@ -46,7 +68,7 @@ export default function ClientPage() {
   const fetchClients = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${baseUrl}/clients`, { ...getAuthHeaders(),  timeout: 6000 });
+      const res = await axios.get(`${baseUrl}/clients`, { ...getAuthHeaders(),  timeout: 10000,});
       setClients(res.data || []);
     } catch (err) {
       console.error("Fetch clients error:", err);
@@ -63,7 +85,7 @@ export default function ClientPage() {
     try {
       toast.loading("Adding client...", { id: "client" });
 
-      const res = await axios.post(`${baseUrl}/clients`, newClient, { ...getAuthHeaders(),  timeout: 6000 });
+      const res = await axios.post(`${baseUrl}/clients`, newClient, { ...getAuthHeaders(),  timeout: 10000 });
 
       toast.success("Client added successfully!", { id: "client" });
 
@@ -139,20 +161,59 @@ export default function ClientPage() {
             required
           />
         </div>
+<button
+  type="submit"
+  className="mt-4 w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg"
+>
+  Add Client
+</button>
 
-        <button
-          type="submit"
-          className="mt-3 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg"
-        >
-          Add Client
-        </button>
       </form>
 
       {/* Client List */}
       <div className="bg-slate-900 p-4 rounded-xl border border-slate-700">
         <h2 className="text-lg font-semibold mb-2">Clients List</h2>
 
-        <table className="w-full text-left border-collapse">
+        {clients.length === 0 && !loading && (
+  <div className="text-slate-400 text-center py-4">
+    No clients found.
+  </div>
+)}
+
+        {/* Mobile View */}
+<div className="block md:hidden space-y-3">
+  {clients.map((c) => (
+    <div
+      key={c.id}
+      className="bg-slate-800 border border-slate-700 rounded-lg p-3"
+    >
+      <div className="flex justify-between items-center mb-2">
+        <span className="text-sm text-slate-400">{c.id}</span>
+        <span className="text-green-400 font-semibold">₹{c.amount}</span>
+      </div>
+
+      <div className="text-white font-semibold">{c.name}</div>
+
+      {c.email && (
+        <div className="text-sm text-slate-300 mt-1">{c.email}</div>
+      )}
+
+      {c.phone && (
+        <div className="text-sm text-slate-300">{c.phone}</div>
+      )}
+
+      {c.address && (
+        <div className="text-sm text-slate-400 mt-1">
+          {c.address}
+        </div>
+      )}
+    </div>
+  ))}
+</div>
+
+
+      <div className="hidden md:block overflow-x-auto">
+  <table className="w-full text-left border-collapse min-w-[700px]">
           <thead>
             <tr className="border-b border-slate-700 text-slate-400">
               <th className="p-2">ID</th>
@@ -172,12 +233,13 @@ export default function ClientPage() {
                 <td className="p-2 text-slate-300">{c.email}</td>
                 <td className="p-2 text-slate-300">{c.phone}</td>
                 <td className="p-2 text-slate-300">{c.address}</td>
-                <td className="p-2 text-green-400 font-semibold">{c.amount}</td>
+                <td className="p-2 text-green-400 font-semibold">₹{c.amount}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+    </div>
     </div>
   );
 }
