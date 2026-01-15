@@ -1,4 +1,5 @@
 "use client";
+
 import { useState, useEffect, useRef } from "react";
 import { DragDropContext } from "@hello-pangea/dnd";
 import Column from "../components/column";
@@ -18,19 +19,26 @@ const fetchWithTimeout = async (url, options = {}, timeout = 8000) => {
     return res.json();
   } catch (err) {
     console.error("Fetch failed:", err.message);
-    return []; // fallback to empty array
+    return [];
   } finally {
     clearTimeout(id);
   }
 };
 
 export default function Board() {
-  const [columns, setColumns] = useState([
+  // =====================
+  // State
+  // =====================
+  const [allColumns, setAllColumns] = useState([
     { id: "todo", title: "To Do", tasks: [] },
     { id: "in-progress", title: "In Progress", tasks: [] },
     { id: "review", title: "Review", tasks: [] },
     { id: "done", title: "Done", tasks: [] },
   ]);
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedUser, setSelectedUser] = useState("all");
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [token, setToken] = useState("");
 
@@ -41,13 +49,31 @@ export default function Board() {
   const baseUrl =
     process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
 
-  // ============================
+  // =====================
+  // Derived (Filtered) Columns
+  // =====================
+  const filteredColumns = allColumns.map((col) => ({
+    ...col,
+    tasks: col.tasks.filter((task) => {
+      const matchesTitle = task.title
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
+
+      const matchesUser =
+        selectedUser === "all" ||
+        String(task.assigneeId) === String(selectedUser);
+
+      return matchesTitle && matchesUser;
+    }),
+  }));
+
+  // =====================
   // Fetch Tasks
-  // ============================
+  // =====================
   const fetchTasks = async () => {
     if (!projectId || !token) return;
-    setLoading(true);
 
+    setLoading(true);
     const statuses = ["todo", "in-progress", "review", "done"];
 
     try {
@@ -62,7 +88,7 @@ export default function Board() {
 
       const results = await Promise.all(requests);
 
-      setColumns((prev) =>
+      setAllColumns((prev) =>
         prev.map((col, index) => ({
           ...col,
           tasks: Array.isArray(results[index])
@@ -77,13 +103,34 @@ export default function Board() {
         }))
       );
     } catch (err) {
-      console.error("Failed to fetch tasks:", err);
+      console.error(err);
       toast.error("Failed to load tasks");
     } finally {
       setLoading(false);
     }
   };
 
+  // =====================
+  // Fetch Users
+  // =====================
+  const fetchUsers = async () => {
+    if (!token) return;
+
+    const data = await fetchWithTimeout(`${baseUrl}/users`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (Array.isArray(data)) {
+      setUsers(data.filter((u) => u.role !== "admin"));
+    }
+  };
+
+  // =====================
+  // Effects
+  // =====================
   useEffect(() => {
     if (typeof window !== "undefined") {
       setToken(localStorage.getItem("employeeToken") || "");
@@ -94,99 +141,124 @@ export default function Board() {
     if (!hasFetched.current && projectId && token) {
       hasFetched.current = true;
       fetchTasks();
+      fetchUsers();
     }
   }, [projectId, token]);
 
-  // ============================
-  // Task Mutations with Timeout
-  // ============================
+  // =====================
+  // Task Mutations
+  // =====================
   const startTask = (taskId) =>
     fetchWithTimeout(`${baseUrl}/tasks/start/${taskId}`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${token}` },
     });
 
   const endTask = (taskId) =>
     fetchWithTimeout(`${baseUrl}/tasks/end/${taskId}`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      headers: { Authorization: `Bearer ${token}` },
     });
 
   const updateStatus = (taskId, status) =>
     fetchWithTimeout(`${baseUrl}/tasks/status`, {
       method: "PATCH",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({ id: taskId, status }),
     });
 
-  // ============================
-  // Drag & Drop Logic
-  // ============================
+  // =====================
+  // Drag & Drop
+  // =====================
   const onDragEnd = async ({ source, destination, draggableId }) => {
     if (!destination) return;
 
-    const sourceColId = source.droppableId;
-    const destColId = destination.droppableId;
-
     const order = ["todo", "in-progress", "review", "done"];
-    const sourceIndex = order.indexOf(sourceColId);
-    const destIndex = order.indexOf(destColId);
+    const sourceIndex = order.indexOf(source.droppableId);
+    const destIndex = order.indexOf(destination.droppableId);
 
     if (destIndex < sourceIndex) {
       toast.error("You can only move tasks forward.");
       return;
     }
 
-    if (sourceColId === "done") return;
-
     if (destIndex !== sourceIndex + 1) {
-      toast.error("You can only move tasks to the next stage.");
+      toast.error("Move tasks step-by-step.");
       return;
     }
 
     // Optimistic UI update
-    setColumns((prev) => {
-      const sourceCol = prev.find((c) => c.id === sourceColId);
-      const destCol = prev.find((c) => c.id === destColId);
+    setAllColumns((prev) => {
+      const sourceCol = prev.find((c) => c.id === source.droppableId);
+      const destCol = prev.find((c) => c.id === destination.droppableId);
 
-      const sourceTasks = Array.from(sourceCol.tasks);
+      const sourceTasks = [...sourceCol.tasks];
       const [task] = sourceTasks.splice(source.index, 1);
 
-      const destTasks = Array.from(destCol.tasks);
+      const destTasks = [...destCol.tasks];
       destTasks.splice(destination.index, 0, task);
 
       return prev.map((c) => {
-        if (c.id === sourceColId) return { ...c, tasks: sourceTasks };
-        if (c.id === destColId) return { ...c, tasks: destTasks };
+        if (c.id === source.droppableId) return { ...c, tasks: sourceTasks };
+        if (c.id === destination.droppableId) return { ...c, tasks: destTasks };
         return c;
       });
     });
 
     try {
-      if (sourceColId === "todo" && destColId === "in-progress") await startTask(draggableId);
-      if (sourceColId === "in-progress" && destColId === "review") await endTask(draggableId);
-      await updateStatus(draggableId, destColId);
-    } catch (err) {
+      if (source.droppableId === "todo") await startTask(draggableId);
+      if (source.droppableId === "in-progress") await endTask(draggableId);
+      await updateStatus(draggableId, destination.droppableId);
+    } catch {
       toast.error("Failed to update task");
-      fetchTasks(); // rollback
+      fetchTasks();
     }
   };
 
-  // ============================
-
+  // =====================
+  // Render
+  // =====================
   return (
     <div>
       <Toaster position="top-right" />
+
       <h1 className="text-3xl font-bold mb-2">Board</h1>
       <p className="text-slate-400 mb-6">
         Visualize and manage your project workflow.
       </p>
 
-      {loading && <p className="text-white">Loading tasks...</p>}
+      {/* Filters */}
+      <div className="flex gap-4 mb-6 flex-wrap">
+        <input
+          type="text"
+          placeholder="Search tasks..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="px-4 py-2 rounded-lg bg-slate-800 text-white border border-slate-700 w-64"
+        />
+
+        <select
+          value={selectedUser}
+          onChange={(e) => setSelectedUser(e.target.value)}
+          className="px-4 py-2 rounded-lg bg-slate-800 text-white border border-slate-700"
+        >
+          <option value="all">All Users</option>
+          {users.map((u) => (
+            <option key={u.id} value={u.id}>
+              {u.name || `User ${u.id}`}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {loading && <p className="text-white">Loading...</p>}
 
       <DragDropContext onDragEnd={onDragEnd}>
         <div className="flex gap-6 overflow-x-auto pb-6">
-          {columns.map((col) => (
+          {filteredColumns.map((col) => (
             <Column key={col.id} column={col} />
           ))}
         </div>
