@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import axios from "axios";
 import {
   FiHome, FiGrid, FiList, FiBarChart2,
-  FiUser, FiMenu, FiX, FiChevronDown, FiBook, FiLogOut,FiFile,FiFlag
+  FiUser, FiMenu, FiX, FiChevronDown, FiBook, FiLogOut, FiFile, FiFlag
 } from "react-icons/fi";
 
 import { useProject } from "../context/ProjectContext";
@@ -14,37 +15,68 @@ export default function Sidebar() {
   const [open, setOpen] = useState(false);
   const [showProjects, setShowProjects] = useState(false);
   const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
 
-const username = user?.name;
-const role = user?.role;
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
-const nav = [
-  { href: "/dashboard", label: "Dashboard", icon: <FiHome /> },
-  { href: "/board", label: "Board", icon: <FiGrid /> },
-  { href: "/backlog", label: "Backlog", icon: <FiList /> },
-  { href: "/reports", label: "Reports", icon: <FiBarChart2 /> },
-  { href: "/leave", label: "Leave Management", icon: <FiUser /> },
-  { href: "/activeTickets", label: "Active Tickets", icon: <FiBook /> },
+  const username = user?.name;
+  const role = user?.role;
 
-  // 🔥 Show only for project manager role
-  ...(role === "project_manager"
-    ? [{ href: "/projects", label: "Project Management", icon: <FiFile /> }]
-    : []),
+  const nav = [
+    { href: "/dashboard", label: "Dashboard", icon: <FiHome /> },
+    { href: "/board", label: "Board", icon: <FiGrid /> },
+    { href: "/backlog", label: "Backlog", icon: <FiList /> },
+    { href: "/reports", label: "Reports", icon: <FiBarChart2 /> },
+    { href: "/leave", label: "Leave Management", icon: <FiUser /> },
+    { href: "/activeTickets", label: "Active Tickets", icon: <FiBook /> },
 
-     ...(role === "project_manager"
-    ? [{ href: "/dummy", label: "Micro Management", icon: <FiFlag /> }]
-    : []),
-];
+    ...(role === "project_manager"
+      ? [{ href: "/projects", label: "Project Management", icon: <FiFile /> }]
+      : []),
+
+    ...(role === "project_manager"
+      ? [{ href: "/dummy", label: "Micro Management", icon: <FiFlag /> }]
+      : []),
+  ];
 
   const handleNavClick = () => {
     if (window.innerWidth < 768) setOpen(false);
   };
 
-useEffect(() => {
-  const saved = localStorage.getItem("employeeUser");
-  if (saved) setUser(JSON.parse(saved));
-}, []);
+  // ---- Load user from localStorage ----
+  useEffect(() => {
+    const saved = localStorage.getItem("employeeUser");
+    const t = localStorage.getItem("employeeToken");
 
+    if (saved) setUser(JSON.parse(saved));
+    if (t) setToken(t);
+  }, []);
+
+  // ---- Call project API if projects empty ----
+  useEffect(() => {
+    if (!token || !user) return;
+    if (projects.length > 0) return; // Already loaded
+
+    const fetchProjects = async () => {
+      try {
+        const res = await axios.get(
+          `${baseUrl}/project-members/user/${user.id}/projects`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        const userProjects = res.data.data || [];
+        if (userProjects.length > 0) {
+          setCurrentProject(userProjects[0]);
+        }
+      } catch (err) {
+        console.error("Error fetching projects:", err);
+      }
+    };
+
+    // Small delay to allow token/user to be ready
+    const timeoutId = setTimeout(fetchProjects, 500);
+    return () => clearTimeout(timeoutId);
+  }, [token, user, projects.length, setCurrentProject]);
 
   return (
     <>
@@ -74,9 +106,7 @@ useEffect(() => {
               >
                 <span>{currentProject?.name || "Select Project"}</span>
                 <FiChevronDown
-                  className={`transition-transform ${
-                    showProjects ? "rotate-180" : "rotate-0"
-                  }`}
+                  className={`transition-transform ${showProjects ? "rotate-180" : "rotate-0"}`}
                 />
               </button>
 
@@ -88,12 +118,10 @@ useEffect(() => {
                       onClick={() => {
                         setCurrentProject(p);
                         setShowProjects(false);
-                        if (window.innerWidth < 768) setOpen(false); 
+                        if (window.innerWidth < 768) setOpen(false);
                       }}
                       className={`w-full text-left px-3 py-2 hover:bg-slate-700 ${
-                        currentProject?.id === p.id
-                          ? "bg-slate-700 text-white"
-                          : "text-slate-300"
+                        currentProject?.id === p.id ? "bg-slate-700 text-white" : "text-slate-300"
                       }`}
                     >
                       {p.name}
@@ -102,8 +130,6 @@ useEffect(() => {
                 </div>
               )}
             </div>
-
-           
 
             {/* Navigation */}
             <nav className="flex flex-col gap-2">
@@ -121,49 +147,37 @@ useEffect(() => {
             </nav>
           </div>
 
-          
-
           {/* User Footer */}
-     {/* User Footer */}
-<div className="flex flex-col gap-3">
-  
-  {/* User Info */}
-<div className="flex items-center gap-3">
-  {/* Initials Avatar */}
-  <div className="w-9 h-9 flex items-center justify-center rounded-full bg-indigo-600 text-white font-semibold uppercase">
-    {username
-      ?.split(" ")
-      ?.map((word) => word[0])
-      ?.join("")
-      ?.slice(0, 2) || ""}
-  </div>
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 flex items-center justify-center rounded-full bg-indigo-600 text-white font-semibold uppercase">
+                {username
+                  ?.split(" ")
+                  ?.map((word) => word[0])
+                  ?.join("")
+                  ?.slice(0, 2) || ""}
+              </div>
 
-  <div className="text-sm">
-    <div className="text-slate-200">{username}</div>
-    <div className="text-slate-400 text-xs">{role}</div>
-  </div>
-</div>
+              <div className="text-sm">
+                <div className="text-slate-200">{username}</div>
+                <div className="text-slate-400 text-xs">{role}</div>
+              </div>
+            </div>
 
-
-  {/* Logout Button */}
-  <button
-    onClick={() => {
-      localStorage.removeItem("employeeUser");
-      localStorage.removeItem("token");
-      window.location.href = "/login";
-    }}
-    className="flex items-center gap-2 mt-2 p-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition"
-  >
-    <FiLogOut size={18} />
-    <span>Logout</span>
-  </button>
-
-</div>
-
+            <button
+              onClick={() => {
+                localStorage.removeItem("employeeUser");
+                localStorage.removeItem("token");
+                window.location.href = "/login";
+              }}
+              className="flex items-center gap-2 mt-2 p-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition"
+            >
+              <FiLogOut size={18} />
+              <span>Logout</span>
+            </button>
+          </div>
         </div>
       </aside>
-
-      
 
       {open && (
         <div
