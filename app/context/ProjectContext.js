@@ -32,7 +32,7 @@ export const ProjectProvider = ({ children }) => {
 
   // ---- SAFE AUTH HEADERS ----
   const getAuthHeaders = () => {
-    if (!token) return {}; // prevent undefined headers during SSR/build
+    if (!token) return {};
     return {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -40,7 +40,7 @@ export const ProjectProvider = ({ children }) => {
     };
   };
 
-  // ---- FETCH PROJECTS AFTER token + userId LOADED ----
+  // ---- FETCH PROJECTS WHEN TOKEN + USERID READY ----
   useEffect(() => {
     if (!token || !userId) return;
 
@@ -54,6 +54,7 @@ export const ProjectProvider = ({ children }) => {
         const userProjects = res.data.data || [];
         setProjects(userProjects);
 
+        // Set first project automatically
         if (!currentProject && userProjects.length > 0) {
           setCurrentProject(userProjects[0]);
         }
@@ -62,8 +63,20 @@ export const ProjectProvider = ({ children }) => {
       }
     };
 
-    fetchProjectsForUser();
-  }, [token, userId]); // wait until both exist
+    // Optional: add a small delay (1-2s) if needed for UX
+    const timeoutId = setTimeout(() => {
+      fetchProjectsForUser();
+    }, 1000);
+
+    return () => clearTimeout(timeoutId);
+  }, [token, userId]);
+
+  // ---- AUTO UPDATE PROJECT IF TOKEN CHANGES AFTER LOGIN ----
+  useEffect(() => {
+    if (projects.length > 0 && !currentProject) {
+      setCurrentProject(projects[0]);
+    }
+  }, [projects, currentProject]);
 
   return (
     <ProjectContext.Provider
