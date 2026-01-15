@@ -1,13 +1,14 @@
 "use client";
 
-import { Search, UserPlus, MoreVertical } from "lucide-react";
+import { Search, UserPlus, MoreVertical, Edit, Trash2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { toast, Toaster } from "react-hot-toast";
 
 export default function UsersPage() {
   const [search, setSearch] = useState("");
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(false); // Add User Modal
+  const [editOpen, setEditOpen] = useState(false); // Edit User Modal
   const [token, setToken] = useState("");
   const [errors, setErrors] = useState({});
   const [openMenuId, setOpenMenuId] = useState(null);
@@ -31,20 +32,14 @@ export default function UsersPage() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-/* REDIRECT IF NO TOKEN + LOAD TOKEN */
-useEffect(() => {
-  const t = localStorage.getItem("token");
+  // Load token and redirect if missing
+  useEffect(() => {
+    const t = localStorage.getItem("token");
+    if (!t) return (window.location.href = "/admin");
+    setToken(t);
+  }, []);
 
-  if (!t) {
-    window.location.href = "/admin"; // redirect to login
-    return;
-  }
-
-  setToken(t); // allow page to continue
-}, []);
-
-
-  /* FETCH USERS ONLY WHEN TOKEN EXISTS */
+  // Fetch users
   useEffect(() => {
     if (token) fetchUsers();
   }, [token]);
@@ -54,7 +49,7 @@ useEffect(() => {
       const res = await axios.get(`${baseUrl}/users`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setUsers(res.data);
+      setUsers(res.data.filter(u => u.status !== "blocked")); // Hide blocked users
     } catch (err) {
       console.log(err);
     }
@@ -62,10 +57,9 @@ useEffect(() => {
 
   const validate = () => {
     const newErrors = {};
-
     if (!form.name) newErrors.name = true;
     if (!form.email) newErrors.email = true;
-    if (!form.password) newErrors.password = true;
+    if (!form.password && !editOpen) newErrors.password = true; // only require password on add
     if (!form.phone) newErrors.phone = true;
     if (!form.identification) newErrors.identification = true;
     if (!form.address) newErrors.address = true;
@@ -75,18 +69,25 @@ useEffect(() => {
   };
 
   const handleSubmit = async () => {
-    if (!validate()) {
-      toast.error("Please fill all required fields!");
-      return;
-    }
+    if (!validate()) return toast.error("Please fill all required fields!");
 
     try {
-      await axios.post(`${baseUrl}/users/register`, form, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      toast.success("User created successfully!");
-      setOpen(false);
+      if (editOpen) {
+        // EDIT USER
+        await axios.put(`${baseUrl}/users/${selectedUser.id}`, form, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        toast.success("User updated successfully!");
+        setEditOpen(false);
+        setSelectedUser(null);
+      } else {
+        // CREATE USER
+        await axios.post(`${baseUrl}/users/register`, form, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        toast.success("User created successfully!");
+        setOpen(false);
+      }
 
       setForm({
         name: "",
@@ -97,7 +98,6 @@ useEffect(() => {
         phone: "",
         identification: "",
       });
-
       fetchUsers();
     } catch (err) {
       toast.error(err.response?.data?.error || err.message);
@@ -111,7 +111,6 @@ useEffect(() => {
         { id, status },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-
       toast.success(`User ${status === "active" ? "activated" : "suspended"}!`);
       fetchUsers();
     } catch (err) {
@@ -119,7 +118,34 @@ useEffect(() => {
     }
   };
 
-  /* CLOSE DROPDOWN ON OUTSIDE CLICK */
+  const deleteUser = async (id) => {
+    if (!confirm("Are you sure you want to delete this user?")) return;
+    try {
+      await axios.delete(`${baseUrl}/users/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      toast.success("User deleted successfully!");
+      fetchUsers();
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Failed to delete user");
+    }
+  };
+
+  const openEditModal = (user) => {
+    setSelectedUser(user);
+    setForm({
+      name: user.name,
+      email: user.email,
+      password: "",
+      role: user.role,
+      address: user.address,
+      phone: user.phone,
+      identification: user.identification,
+    });
+    setEditOpen(true);
+  };
+
+  // Close dropdown on outside click
   useEffect(() => {
     const close = () => setOpenMenuId(null);
     window.addEventListener("click", close);
@@ -158,7 +184,7 @@ useEffect(() => {
         <Search className="absolute left-3 top-2.5 text-slate-500 w-5 h-5" />
       </div>
 
-      {/* TABLE */}
+      {/* TABLE FOR DESKTOP */}
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full border border-slate-800 rounded-xl overflow-hidden">
           <thead className="bg-slate-900">
@@ -167,17 +193,13 @@ useEffect(() => {
               <th className="text-left p-4 border-b border-slate-800">Email</th>
               <th className="text-left p-4 border-b border-slate-800">Role</th>
               <th className="text-left p-4 border-b border-slate-800">Status</th>
-              <th className="text-right p-4 border-b border-slate-800"></th>
+              <th className="text-right p-4 border-b border-slate-800">Actions</th>
             </tr>
           </thead>
 
           <tbody>
             {filteredUsers.map((user) => (
-              <tr
-                key={user.id}
-                className="border-b border-slate-800 hover:bg-slate-800/50 transition cursor-pointer"
-                onClick={() => setSelectedUser(user)}
-              >
+              <tr key={user.id} className="border-b border-slate-800 hover:bg-slate-800/50 transition">
                 <td className="p-4">{user.name}</td>
                 <td className="p-4 text-slate-400">{user.email}</td>
                 <td className="p-4">
@@ -196,7 +218,6 @@ useEffect(() => {
                     </span>
                   )}
                 </td>
-
                 <td className="p-4 text-right relative">
                   {/* ACTION MENU */}
                   <button
@@ -213,13 +234,30 @@ useEffect(() => {
 
                   {openMenuId === user.id && (
                     <div
-                      className="fixed w-40 bg-slate-800 border border-slate-700 rounded-xl shadow-lg z-50"
-                      style={{
-                        top: dropdownPos.y,
-                        left: dropdownPos.x - 160,
-                      }}
+                      className="fixed w-44 bg-slate-800 border border-slate-700 rounded-xl shadow-lg z-50"
+                      style={{ top: dropdownPos.y, left: dropdownPos.x - 180 }}
                       onClick={(e) => e.stopPropagation()}
                     >
+                      <button
+                        className="w-full text-left px-4 py-2 hover:bg-slate-700 flex items-center gap-2"
+                        onClick={() => {
+                          openEditModal(user);
+                          setOpenMenuId(null);
+                        }}
+                      >
+                        <Edit size={16} /> Edit
+                      </button>
+
+                      <button
+                        className="w-full text-left px-4 py-2 text-red-400 hover:bg-red-900/40 flex items-center gap-2"
+                        onClick={() => {
+                          deleteUser(user.id);
+                          setOpenMenuId(null);
+                        }}
+                      >
+                        <Trash2 size={16} /> Delete
+                      </button>
+
                       <button
                         className="w-full text-left px-4 py-2 hover:bg-slate-700"
                         onClick={() => {
@@ -258,39 +296,60 @@ useEffect(() => {
           <div
             key={user.id}
             className="bg-slate-900 rounded-xl p-4 border border-slate-800"
-            onClick={() => setSelectedUser(user)}
           >
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center">
               <h2 className="text-lg font-bold">{user.name}</h2>
-              <MoreVertical className="text-slate-400" />
+              <span className="text-slate-400 text-sm">{user.status}</span>
             </div>
 
             <p className="text-slate-400 text-sm mt-1">{user.email}</p>
 
-            <div className="flex items-center gap-2 mt-2">
+            <div className="flex flex-wrap items-center gap-2 mt-2">
               <span className="px-2 py-1 bg-slate-800 rounded-lg text-slate-300 text-sm">
                 {user.role}
               </span>
+            </div>
 
+            <div className="flex justify-end gap-2 mt-3">
+              <button
+                onClick={() => openEditModal(user)}
+                className="px-3 py-1 bg-blue-600 rounded-lg text-sm flex items-center gap-1"
+              >
+                <Edit size={14} /> Edit
+              </button>
+              <button
+                onClick={() => deleteUser(user.id)}
+                className="px-3 py-1 bg-red-600 rounded-lg text-sm flex items-center gap-1"
+              >
+                <Trash2 size={14} /> Delete
+              </button>
               {user.status === "active" ? (
-                <span className="px-2 py-1 bg-green-900/40 text-green-400 rounded-lg text-sm">
-                  Active
-                </span>
+                <button
+                  onClick={() => updateStatus(user.id, "suspended")}
+                  className="px-3 py-1 bg-red-700 rounded-lg text-sm"
+                >
+                  Suspend
+                </button>
               ) : (
-                <span className="px-2 py-1 bg-red-900/40 text-red-400 rounded-lg text-sm">
-                  Suspended
-                </span>
+                <button
+                  onClick={() => updateStatus(user.id, "active")}
+                  className="px-3 py-1 bg-green-600 rounded-lg text-sm"
+                >
+                  Activate
+                </button>
               )}
             </div>
           </div>
         ))}
       </div>
 
-      {/* ADD USER MODAL */}
-      {open && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4">
+      {/* ADD / EDIT MODAL */}
+      {(open || editOpen) && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
           <div className="bg-slate-900 p-6 rounded-xl w-full max-w-lg">
-            <h2 className="text-xl font-bold mb-4">Add Employee</h2>
+            <h2 className="text-xl font-bold mb-4">
+              {editOpen ? "Edit Employee" : "Add Employee"}
+            </h2>
 
             <div className="grid grid-cols-1 gap-3">
               {[
@@ -329,7 +388,9 @@ useEffect(() => {
               <button
                 onClick={() => {
                   setOpen(false);
+                  setEditOpen(false);
                   setErrors({});
+                  setSelectedUser(null);
                 }}
                 className="px-4 py-2 bg-slate-700 rounded-lg"
               >
@@ -341,65 +402,6 @@ useEffect(() => {
                 className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700"
               >
                 Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* USER DETAILS MODAL */}
-      {selectedUser && (
-        <div
-          className="fixed inset-0 bg-black/60 flex items-center justify-center p-5 z-50"
-          onClick={() => setSelectedUser(null)}
-        >
-          <div
-            className="bg-slate-900 w-full max-w-md rounded-xl p-6 shadow-xl border border-slate-700"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">Employee Details</h2>
-              <button
-                onClick={() => setSelectedUser(null)}
-                className="text-slate-400 hover:text-white"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              {[
-                ["Name", selectedUser.name],
-                ["Email", selectedUser.email],
-                ["Role", selectedUser.role],
-                ["Phone", selectedUser.phone],
-                ["Address", selectedUser.address],
-                ["Identification", selectedUser.identification],
-                ["Status", selectedUser.status],
-              ].map(([label, value]) => (
-                <div key={label}>
-                  <p className="text-slate-400 text-sm">{label}</p>
-                  <p
-                    className={`text-white font-medium ${
-                      label === "Status"
-                        ? value === "active"
-                          ? "text-green-400"
-                          : "text-red-400"
-                        : ""
-                    }`}
-                  >
-                    {value || "-"}
-                  </p>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex justify-end mt-6">
-              <button
-                onClick={() => setSelectedUser(null)}
-                className="px-4 py-2 bg-slate-700 rounded-lg hover:bg-slate-600 transition"
-              >
-                Close
               </button>
             </div>
           </div>
