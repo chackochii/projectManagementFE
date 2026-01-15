@@ -89,25 +89,42 @@ export default function AdminReportsPage() {
 
       const data = res.data;
 
+      // Make sure hours is numeric
       setContributors(
         data.employees?.map((e) => ({
           name: e.employee,
-          tasks: e.totalTasks,
-          hours: e.hoursWorked,
-          totalTasks: e.totalTasks,
-          todo: e.todo,
-          inProgress: e.inProgress,
-          review: e.review,
-          done: e.done,
+          tasks: Number(e.totalTasks) || 0,
+          hours: Number(e.hoursWorked) || 0, // <-- IMPORTANT
+          totalTasks: Number(e.totalTasks) || 0,
+          todo: Number(e.todo) || 0,
+          inProgress: Number(e.inProgress) || 0,
+          review: Number(e.review) || 0,
+          done: Number(e.done) || 0,
         })) || []
       );
 
-      setIssueStats(data.summary || {});
+      setIssueStats({
+        todo: Number(data.summary?.todo) || 0,
+        inProgress: Number(data.summary?.inProgress) || 0,
+        done: Number(data.summary?.done) || 0,
+      });
     } catch (err) {
       console.error("Report fetch error:", err);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Convert decimal hours to HH:MM:SS
+  const formatHoursToHHMMSS = (hoursDecimal) => {
+    if (!hoursDecimal) return "00:00:00";
+
+    const totalSeconds = Math.floor(hoursDecimal * 3600);
+    const h = String(Math.floor(totalSeconds / 3600)).padStart(2, "0");
+    const m = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, "0");
+    const s = String(totalSeconds % 60).padStart(2, "0");
+
+    return `${h}:${m}:${s}`;
   };
 
   if (loading) {
@@ -126,7 +143,6 @@ export default function AdminReportsPage() {
 
   return (
     <div className="p-4 md:p-6 text-white">
-
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
         <div>
@@ -136,8 +152,6 @@ export default function AdminReportsPage() {
 
         {/* Filters */}
         <div className="flex flex-wrap gap-3 mt-4 md:mt-0">
-
-          {/* Date Range Filter */}
           <select
             value={dateRange}
             onChange={(e) => setDateRange(e.target.value)}
@@ -148,7 +162,6 @@ export default function AdminReportsPage() {
             <option value="month">This Month</option>
           </select>
 
-          {/* Users Filter */}
           <select
             value={selectedUser}
             onChange={(e) => setSelectedUser(e.target.value)}
@@ -162,7 +175,6 @@ export default function AdminReportsPage() {
             ))}
           </select>
 
-          {/* Project Filter */}
           <select
             value={selectedProject}
             onChange={(e) => setSelectedProject(e.target.value)}
@@ -178,9 +190,6 @@ export default function AdminReportsPage() {
         </div>
       </div>
 
-      {/* --- REST OF YOUR CHARTS BELOW (UNCHANGED) --- */}
-
-
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Contributor Bar Chart */}
@@ -194,7 +203,6 @@ export default function AdminReportsPage() {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={contributors}>
                 <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" />
-
                 <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} />
                 <YAxis stroke="#94a3b8" fontSize={12} />
 
@@ -206,19 +214,14 @@ export default function AdminReportsPage() {
                   }}
                   labelStyle={{ color: "#fff" }}
                   formatter={(value, name) =>
-                    name === "hours" ? `${value} hrs` : value
+                    name === "hours" ? formatHoursToHHMMSS(Number(value)) : value
                   }
                 />
 
                 <Legend />
 
-                {/* Tasks bar */}
                 <Bar dataKey="tasks" name="Tasks" fill="#818cf8" radius={[4, 4, 0, 0]} />
-
-                {/* Hours worked bar */}
                 <Bar dataKey="hours" name="Hours Worked" fill="#82ca9d" radius={[5, 5, 0, 0]} />
-
-          
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -268,66 +271,61 @@ export default function AdminReportsPage() {
           </div>
         </div>
 
-
-
-
         {/* Employee Task Breakdown */}
-{/* Employee Task Breakdown */}
-<div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl mt-8">
-  <h2 className="text-xl font-semibold mb-4">Employee Task Breakdown</h2>
+        <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl mt-8">
+          <h2 className="text-xl font-semibold mb-4">Employee Task Breakdown</h2>
 
-  {contributors.map((emp) => (
-    <div key={emp.name} className="mb-8">
-      <h3 className="text-lg font-semibold text-blue-300 mb-2">
-        {emp.name} — {emp.hours} hrs total
-      </h3>
+          {contributors.map((emp) => (
+            <div key={emp.name} className="mb-8">
+              <h3 className="text-lg font-semibold text-blue-300 mb-2">
+                {emp.name} — {formatHoursToHHMMSS(emp.hours)} total
+              </h3>
 
-      <table className="w-full text-sm text-left border-collapse">
-        <thead>
-          <tr className="border-b border-slate-700 text-slate-400">
-            <th className="p-2">Metric</th>
-            <th className="p-2">Value</th>
-          </tr>
-        </thead>
+              <table className="w-full text-sm text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-700 text-slate-400">
+                    <th className="p-2">Metric</th>
+                    <th className="p-2">Value</th>
+                  </tr>
+                </thead>
 
-        <tbody>
-          <tr className="border-b border-slate-800">
-            <td className="p-2 text-white">To Do</td>
-            <td className="p-2 text-slate-300">{emp.todo}</td>
-          </tr>
+                <tbody>
+                  <tr className="border-b border-slate-800">
+                    <td className="p-2 text-white">To Do</td>
+                    <td className="p-2 text-slate-300">{emp.todo}</td>
+                  </tr>
 
-          <tr className="border-b border-slate-800">
-            <td className="p-2 text-white">In Progress</td>
-            <td className="p-2 text-slate-300">{emp.inProgress}</td>
-          </tr>
+                  <tr className="border-b border-slate-800">
+                    <td className="p-2 text-white">In Progress</td>
+                    <td className="p-2 text-slate-300">{emp.inProgress}</td>
+                  </tr>
 
-          <tr className="border-b border-slate-800">
-            <td className="p-2 text-white">Review</td>
-            <td className="p-2 text-slate-300">{emp.review}</td>
-          </tr>
+                  <tr className="border-b border-slate-800">
+                    <td className="p-2 text-white">Review</td>
+                    <td className="p-2 text-slate-300">{emp.review}</td>
+                  </tr>
 
-          <tr className="border-b border-slate-800">
-            <td className="p-2 text-white">Done</td>
-            <td className="p-2 text-slate-300">{emp.done}</td>
-          </tr>
+                  <tr className="border-b border-slate-800">
+                    <td className="p-2 text-white">Done</td>
+                    <td className="p-2 text-slate-300">{emp.done}</td>
+                  </tr>
 
-          <tr className="border-b border-slate-800">
-            <td className="p-2 text-white">Total Tasks</td>
-            <td className="p-2 text-slate-300">{emp.totalTasks}</td>
-          </tr>
+                  <tr className="border-b border-slate-800">
+                    <td className="p-2 text-white">Total Tasks</td>
+                    <td className="p-2 text-slate-300">{emp.totalTasks}</td>
+                  </tr>
 
-          <tr>
-            <td className="p-2 text-white">Hours Worked</td>
-            <td className="p-2 text-green-400 font-semibold">{emp.hours}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  ))}
-</div>
-
-
-
+                  <tr>
+                    <td className="p-2 text-white">Hours Worked</td>
+                    <td className="p-2 text-green-400 font-semibold">
+                      {formatHoursToHHMMSS(emp.hours)}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
