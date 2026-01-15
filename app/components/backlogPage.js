@@ -168,6 +168,17 @@ export default function BacklogPage() {
       return;
     }
 
+     const unassignedTasks = currentSprintIssues.filter(
+    (task) => !task.assigneeId
+  );
+
+  if (unassignedTasks.length > 0) {
+    toast.error(
+      `Please assign all tasks before starting the sprint. (${unassignedTasks.length} unassigned)`
+    );
+    return;
+  }
+
     try {
       setLoading(true);
       await Promise.allSettled(currentSprintIssues.map((task) =>
