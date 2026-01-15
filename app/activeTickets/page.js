@@ -6,12 +6,7 @@ import { useProject } from "../context/ProjectContext";
 
 export default function ActiveTicketPage() {
   const [tasks, setTasks] = useState([]);
-  const [activeTaskId, setActiveTaskId] = useState(null);
-  const [activeTaskStartTime, setActiveTaskStartTime] = useState(null);
-
-  const [totalSecondsFromBackend, setTotalSecondsFromBackend] = useState(0);
   const [now, setNow] = useState(Date.now());
-
   const [token, setToken] = useState("");
   const [userId, setUserId] = useState(null);
 
@@ -37,13 +32,10 @@ export default function ActiveTicketPage() {
   });
 
   /* =====================================================
-     GLOBAL TICK (DRIVES ALL TIMERS)
+     GLOBAL TICK
   ===================================================== */
   useEffect(() => {
-    const interval = setInterval(() => {
-      setNow(Date.now());
-    }, 1000);
-
+    const interval = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -52,118 +44,108 @@ export default function ActiveTicketPage() {
   ===================================================== */
   const fetchTasks = async () => {
     if (!projectId || !token) return;
+    try {
+      const res = await axios.get(
+        `${baseUrl}/tasks/my-active-tasks/${projectId}`,
+        { ...getAuthHeaders(), timeout: 10000 }
+      );
 
-    const res = await axios.get(
-      `${baseUrl}/tasks/my-active-tasks/${projectId}`,
-      {
-        ...getAuthHeaders(),
-        timeout: 10000,
-      }
-    );
-
-    const list = res.data.tasks || [];
-    const filtered = list.filter(
-      (t) => t.status !== "completed" && t.status !== "review"
-    );
-
-    setTasks(filtered);
-
-    const running = filtered.find(
-      (t) => t.status === "in-progress" && t.startTime
-    );
-
-    if (running) {
-      setActiveTaskId(running.id);
-      setActiveTaskStartTime(new Date(running.startTime).getTime());
-    } else {
-      setActiveTaskId(null);
-      setActiveTaskStartTime(null);
+      const list = res.data.tasks || [];
+      const filtered = list.filter(
+        (t) => t.status !== "completed" && t.status !== "review"
+      );
+      setTasks(filtered);
+    } catch (err) {
+      console.error("Failed to fetch tasks:", err);
     }
-  };
-
-  /* =====================================================
-     FETCH TODAY WORKED (BACKEND)
-  ===================================================== */
-  const fetchWorkHours = async () => {
-    if (!userId) return;
-
-    const res = await axios.get(
-      `${baseUrl}/task-time/user-one-day/${userId}`,
-      getAuthHeaders()
-    );
-
-    setTotalSecondsFromBackend(res.data.totalHours || 0);
   };
 
   useEffect(() => {
-     if (!token || !userId || !projectId) return;
+    if (!token || !userId || !projectId) return;
     fetchTasks();
-    fetchWorkHours();
-  }, [projectId, token]);
+  }, [projectId, token, userId]);
 
   /* =====================================================
-     START / STOP
+     TOGGLE START / STOP
   ===================================================== */
-const startTask = async (task) => {
-  await axios.post(
-    `${baseUrl}/tasks/start/${task.id}`,
-    {}, // ✅ empty body
-    {
-      ...getAuthHeaders(),
-      timeout: 10000,
+  const toggleTask = async (task) => {
+    if (task.isRunning) {
+      // Stop task
+      try {
+        const res = await axios.post(
+          `${baseUrl}/tasks/end/${task.id}`,
+          {},
+          getAuthHeaders()
+        );
+
+        // Update task in state
+        setTasks((prev) =>
+          prev.map((t) =>
+            t.id === task.id
+              ? {
+                  ...t,
+                  isRunning: false,
+                  hoursTaken: res.data.task.hoursTaken,
+                  startTime: null,
+                }
+              : t
+          )
+        );
+      } catch (err) {
+        console.error("Failed to stop task", err);
+      }
+    } else {
+      // Start task
+      try {
+        const res = await axios.post(
+          `${baseUrl}/tasks/start/${task.id}`,
+          {},
+          { ...getAuthHeaders(), timeout: 10000 }
+        );
+
+        // Stop other tasks in state
+        setTasks((prev) =>
+          prev.map((t) =>
+            t.id === task.id
+              ? { ...t, isRunning: true, startTime: new Date() }
+              : { ...t, isRunning: false }
+          )
+        );
+      } catch (err) {
+        console.error("Failed to start task", err);
+      }
     }
-  );
-
-    setActiveTaskId(task.id);
-    setActiveTaskStartTime(Date.now());
-    fetchTasks();
-  };
-
-  const stopTask = async (taskId) => {
-    await axios.post(
-      `${baseUrl}/tasks/end/${taskId}`,
-      {},
-      getAuthHeaders()
-    );
-
-    setActiveTaskId(null);
-    setActiveTaskStartTime(null);
-    fetchTasks();
-    fetchWorkHours();
-  };
-
-  const sendToReview = async (taskId) => {
-    await axios.patch(
-      `${baseUrl}/tasks/status`,
-      { id: taskId, status: "review" },
-      getAuthHeaders()
-    );
-
-    fetchTasks();
-    fetchWorkHours();
   };
 
   /* =====================================================
-     DERIVED TIMERS (NO STATE DRIFT)
+     SEND TO REVIEW
   ===================================================== */
-  const getTodayWorkedSeconds = () => {
-    if (!activeTaskStartTime) return totalSecondsFromBackend;
-    return (
-      totalSecondsFromBackend +
-      Math.floor((now - activeTaskStartTime) / 1000)
-    );
+  const sendToReview = async (taskId) => {
+    try {
+      await axios.patch(
+        `${baseUrl}/tasks/status`,
+        { id: taskId, status: "review" },
+        getAuthHeaders()
+      );
+      fetchTasks();
+    } catch (err) {
+      console.error("Failed to send task to review:", err);
+    }
   };
 
+  /* =====================================================
+     DERIVED TIMERS
+  ===================================================== */
   const getTaskSeconds = (task) => {
     let seconds = task.hoursTaken || 0;
-
-    if (task.status === "in-progress" && task.startTime) {
-      seconds += Math.floor(
-        (now - new Date(task.startTime).getTime()) / 1000
-      );
+    if (task.isRunning && task.startTime) {
+      seconds += Math.floor((now - new Date(task.startTime).getTime()) / 1000);
     }
-
     return seconds;
+  };
+
+  const getTodayWorkedSeconds = () => {
+    return tasks.reduce((acc, task) => acc + getTaskSeconds(task), 0);
   };
 
   const formatTime = (s = 0) => {
@@ -188,7 +170,7 @@ const startTask = async (task) => {
   ===================================================== */
   return (
     <div className="min-h-screen bg-slate-950 p-6 text-white flex flex-col items-center">
-
+      {/* Today Worked Timer */}
       <div className="w-full max-w-xl bg-slate-900 border border-slate-700 rounded-2xl p-6 mb-10 text-center">
         <h2 className="text-xl mb-2">Today Worked</h2>
         <div className="text-5xl font-mono text-green-400">
@@ -196,6 +178,7 @@ const startTask = async (task) => {
         </div>
       </div>
 
+      {/* Task List */}
       <div className="w-full max-w-xl space-y-4">
         {tasks.map((task) => (
           <div
@@ -204,7 +187,11 @@ const startTask = async (task) => {
           >
             <div>
               <div className="flex gap-2 mb-2">
-                <span className={`px-3 py-1 rounded-lg text-sm ${getPriorityColor(task.priority)}`}>
+                <span
+                  className={`px-3 py-1 rounded-lg text-sm ${getPriorityColor(
+                    task.priority
+                  )}`}
+                >
                   {task.priority}
                 </span>
                 <span className="px-3 py-1 rounded-lg bg-gray-700 text-sm">
@@ -214,42 +201,32 @@ const startTask = async (task) => {
               <div className="text-lg">{task.title}</div>
             </div>
 
-           <div className="flex flex-col items-center gap-2">
+            <div className="flex flex-col items-center gap-2">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => toggleTask(task)}
+                  disabled={
+    !task.isRunning && tasks.some((t) => t.isRunning) // disable if another task is running
+  }
+               className={`p-2 rounded-full ${
+    task.isRunning ? "bg-red-600" : "bg-green-600"
+  } disabled:bg-gray-600`}
+                >
+                  {task.isRunning ? <Square size={18} /> : <Play size={18} />}
+                </button>
 
-  {/* Buttons row */}
-  <div className="flex items-center gap-3">
-    {task.status === "in-progress" ? (
-      <button
-        onClick={() => stopTask(task.id)}
-        className="p-2 bg-red-600 rounded-full"
-      >
-        <Square size={18} />
-      </button>
-    ) : (
-      <button
-        onClick={() => startTask(task)}
-        disabled={activeTaskId && activeTaskId !== task.id}
-        className="p-2 bg-green-600 rounded-full disabled:bg-gray-600"
-      >
-        <Play size={18} />
-      </button>
-    )}
+                <button
+                  onClick={() => sendToReview(task.id)}
+                  className="p-2 bg-blue-600 rounded-full"
+                >
+                  <Send size={18} />
+                </button>
+              </div>
 
-    <button
-      onClick={() => sendToReview(task.id)}
-      className="p-2 bg-blue-600 rounded-full"
-    >
-      <Send size={18} />
-    </button>
-  </div>
-
-  {/* Timer below buttons */}
-  <div className="font-mono text-green-400 text-sm">
-    {formatTime(getTaskSeconds(task))}
-  </div>
-
-</div>
-
+              <div className="font-mono text-green-400 text-sm">
+                {formatTime(getTaskSeconds(task))}
+              </div>
+            </div>
           </div>
         ))}
       </div>
