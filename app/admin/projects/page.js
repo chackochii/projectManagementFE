@@ -5,6 +5,9 @@ import axios from "axios";
 import { toast, Toaster } from "react-hot-toast";
 import { UserPlus } from "lucide-react";
 
+/* ======================================================
+   MAIN PAGE
+====================================================== */
 export default function ProjectListPage() {
   const [projects, setProjects] = useState([]);
   const [stats, setStats] = useState({
@@ -17,187 +20,215 @@ export default function ProjectListPage() {
   const [isMobile, setIsMobile] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showProjectModal, setShowProjectModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
-  const [selectedProject, setSelectedProject] = useState(null);
+  const [editingProject, setEditingProject] = useState(null);
 
   const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
-  // Detect Screen Size
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth <= 640);
-    };
 
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+
+  
+
+  /* =========================
+     RESPONSIVE
+  ========================= */
+  useEffect(() => {
+    const resize = () => setIsMobile(window.innerWidth <= 640);
+    resize();
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
   }, []);
 
-  // Fetch Project List
-  useEffect(() => {
-    fetchProjects();
-  }, []);
-
-  const getAuthHeaders = () => ({
+  /* =========================
+     AUTH
+  ========================= */
+  const auth = () => ({
     headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
   });
 
+  /* =========================
+     FETCH PROJECTS
+  ========================= */
   const fetchProjects = async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${baseUrl}/projects/`, getAuthHeaders());
+      const res = await axios.get(`${baseUrl}/projects`, auth());
       const data = res.data.data || [];
 
       setProjects(data);
-
       setStats({
         total: data.length,
-        active: data.filter((p) => p.status === "active").length,
-        completed: data.filter((p) => p.status === "completed").length,
-        cancelled: data.filter((p) => p.status === "cancelled").length,
+        active: data.filter(p => p.status === "active").length,
+        completed: data.filter(p => p.status === "completed").length,
+        cancelled: data.filter(p => p.status === "cancelled").length,
       });
-    } catch (err) {
+    } catch {
       toast.error("Failed to load projects");
     } finally {
       setLoading(false);
     }
   };
 
-  const openAssignModal = (project) => {
-    setSelectedProject(project);
-    setShowAssignModal(true);
+  useEffect(() => {
+    fetchProjects();
+  }, []);
+
+  /* =========================
+     DELETE
+  ========================= */
+  const deleteProject = async (id) => {
+    if (!confirm("Delete this project?")) return;
+    try {
+      await axios.delete(`${baseUrl}/projects/${id}`, auth());
+      toast.success("Project deleted");
+      fetchProjects();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Delete failed");
+    }
   };
 
   return (
     <div className="p-4 md:p-6">
       <Toaster />
 
-      {/* PAGE TITLE */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl md:text-3xl font-bold">Projects</h1>
-
+      {/* HEADER */}
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-2xl md:text-4xl font-bold">Projects</h1>
         <button
-          onClick={() => setShowCreateModal(true)}
-          className="bg-blue-600 px-4 py-2 rounded-lg hover:bg-blue-700 text-sm md:text-base"
+          onClick={() => {
+            setEditingProject(null);
+            setShowProjectModal(true);
+          }}
+          className="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-full shadow-lg"
         >
           + Add Project
         </button>
       </div>
 
-      {/* ---- MOBILE VIEW ---- */}
+      {/* STATS CARDS */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <StatCard title="Total Projects" value={stats.total} />
+        <StatCard title="Active" value={stats.active} />
+        <StatCard title="Completed" value={stats.completed} />
+        <StatCard title="Cancelled" value={stats.cancelled} />
+      </div>
+
+      {/* MOBILE */}
       {isMobile ? (
-        <>
-          {/* MOBILE PROJECT LIST */}
-          {loading ? (
-            <p className="text-slate-400">Loading...</p>
-          ) : projects.length === 0 ? (
-            <p className="text-slate-400">No projects found.</p>
-          ) : (
-            <div className="flex flex-col gap-4">
-              {projects.map((project) => (
-                <div
-                  key={project.id}
-                  className="bg-slate-900 border border-slate-800 p-4 rounded-xl"
-                >
-                  <h2 className="text-lg font-semibold">{project.name}</h2>
-                  <p className="text-sm text-slate-400">
-                    Client: {project.clientName || "—"}
-                  </p>
+        loading ? (
+          <p>Loading...</p>
+        ) : (
+          <div className="space-y-4">
+            {projects.map(project => (
+              <div key={project.id} className="bg-slate-900 p-4 rounded-2xl shadow-md">
+                <h2 className="font-semibold">{project.name}</h2>
+                <p className="text-sm text-slate-400">
+                  Client: {project.clientName || "—"}
+                </p>
 
-                  <span
-                    className={`inline-block mt-2 px-2 py-1 text-xs rounded-full ${
-                      project.status === "active"
-                        ? "bg-green-500/20 text-green-400"
-                        : project.status === "completed"
-                        ? "bg-blue-500/20 text-blue-400"
-                        : "bg-red-500/20 text-red-400"
-                    }`}
-                  >
-                    {project.status}
-                  </span>
+                <StatusBadge status={project.status} />
 
-                  <p className="text-xs text-slate-500 mt-1">
-                    Created: {new Date(project.createdAt).toLocaleDateString()}
-                  </p>
-
+                <div className="flex gap-2 mt-4">
                   <button
-                    onClick={() => openAssignModal(project)}
-                    className="mt-3 w-full flex items-center justify-center gap-2 bg-slate-800 py-2 rounded-lg border border-slate-700"
+                    className="flex-1 bg-slate-800 py-2 rounded-full"
+                    onClick={() => {
+                      setEditingProject(project);
+                      setShowProjectModal(true);
+                    }}
                   >
-                    <UserPlus size={16} /> Assign Users
+                    Edit
+                  </button>
+                  <button
+                    className="flex-1 bg-red-600/20 text-red-400 py-2 rounded-full"
+                    onClick={() => deleteProject(project.id)}
+                  >
+                    Delete
                   </button>
                 </div>
-              ))}
-            </div>
-          )}
-        </>
+
+                <button
+                  className="mt-3 w-full bg-blue-600 py-2 rounded-full"
+                  onClick={() => {
+                    setEditingProject(project);
+                    setShowAssignModal(true);
+                  }}
+                >
+                  Assign Users
+                </button>
+              </div>
+            ))}
+          </div>
+        )
       ) : (
-        <>
-          {/* ---- DESKTOP VIEW ---- */}
-
-          {/* SUMMARY CARDS */}
-          <div className="grid grid-cols-4 gap-4 mb-6">
-            <StatCard title="Total" value={stats.total} />
-            <StatCard title="Active" value={stats.active} />
-            <StatCard title="Completed" value={stats.completed} />
-            <StatCard title="Cancelled" value={stats.cancelled} />
-          </div>
-
-          {/* PROJECT TABLE */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 overflow-x-auto">
-            <table className="min-w-full text-left">
-              <thead>
-                <tr className="border-b border-slate-700">
-                  <th className="p-3">Project</th>
-                  <th className="p-3">Client</th>
-                  <th className="p-3">Status</th>
-                  <th className="p-3">Created</th>
-                  <th className="p-3 text-right">Action</th>
+        /* DESKTOP TABLE */
+        <div className="bg-slate-900 rounded-2xl p-4 shadow-xl">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-slate-700">
+                <th className="p-3 text-left">Project</th>
+                <th className="p-3">Client</th>
+                <th className="p-3">Status</th>
+                <th className="p-3">Created</th>
+                <th className="p-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {projects.map(project => (
+                <tr key={project.id} className="border-b border-slate-800">
+                  <td className="p-3">{project.name}</td>
+                  <td className="p-3">{project.clientName || "—"}</td>
+                  <td className="p-3">
+                    <StatusBadge status={project.status} />
+                  </td>
+                  <td className="p-3">
+                    {new Date(project.createdAt).toLocaleDateString()}
+                  </td>
+                  <td className="p-3 text-right space-x-2">
+                    <button
+                      className="bg-slate-800 px-4 py-1 rounded-full"
+                      onClick={() => {
+                        setEditingProject(project);
+                        setShowProjectModal(true);
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className="bg-red-600/20 text-red-400 px-4 py-1 rounded-full"
+                      onClick={() => deleteProject(project.id)}
+                    >
+                      Delete
+                    </button>
+                    <button
+                      className="bg-blue-600 px-4 py-1 rounded-full"
+                      onClick={() => {
+                        setEditingProject(project);
+                        setShowAssignModal(true);
+                      }}
+                    >
+                      Assign
+                    </button>
+                  </td>
                 </tr>
-              </thead>
-
-              <tbody>
-                {projects.map((project) => (
-                  <tr key={project.id} className="border-b border-slate-800">
-                    <td className="p-3">{project.name}</td>
-                    <td className="p-3">{project.clientName || "—"}</td>
-                    <td className="p-3">
-                      <StatusBadge status={project.status} />
-                    </td>
-                    <td className="p-3">
-                      {new Date(project.createdAt).toLocaleDateString()}
-                    </td>
-
-                    <td className="p-3 text-right">
-                      <button
-                        onClick={() => openAssignModal(project)}
-                        className="flex items-center gap-2 bg-slate-800 px-3 py-1 rounded-lg "
-                      >
-                        <UserPlus size={16} />
-                        Assign
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
-      {/* CREATE PROJECT MODAL */}
-      {showCreateModal && (
+      {/* MODALS */}
+      {showProjectModal && (
         <CreateProjectModal
-          closeModal={() => setShowCreateModal(false)}
+          project={editingProject}
+          closeModal={() => setShowProjectModal(false)}
           refreshProjects={fetchProjects}
         />
       )}
 
-      {/* ASSIGN USERS MODAL */}
       {showAssignModal && (
         <AssignUserModal
-          project={selectedProject}
+          project={editingProject}
           closeModal={() => setShowAssignModal(false)}
         />
       )}
@@ -205,392 +236,311 @@ export default function ProjectListPage() {
   );
 }
 
-/* REUSABLE STATUS BADGE */
-function StatusBadge({ status }) {
-  const color = {
-    active: "text-green-400 bg-green-500/20",
-    completed: "text-blue-400 bg-blue-500/20",
-    cancelled: "text-red-400 bg-red-500/20",
-    "on-hold": "text-yellow-400 bg-yellow-500/20",
-  };
+/* ======================================================
+   SUPPORT COMPONENTS
+====================================================== */
 
+function StatusBadge({ status }) {
+  const map = {
+    active: "bg-green-500/20 text-green-400",
+    completed: "bg-blue-500/20 text-blue-400",
+    cancelled: "bg-red-500/20 text-red-400",
+    "on-hold": "bg-yellow-500/20 text-yellow-400",
+  };
   return (
-    <span className={`px-2 py-1 rounded-full text-xs ${color[status]}`}>
+    <span className={`px-3 py-1 rounded-full text-xs ${map[status]}`}>
       {status}
     </span>
   );
 }
 
-/* SUMMARY CARD */
 function StatCard({ title, value }) {
   return (
-    <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl text-center">
-      <h3 className="text-slate-400 text-sm">{title}</h3>
-      <p className="text-3xl font-bold mt-1">{value}</p>
+    <div className="bg-slate-900 p-6 rounded-2xl shadow-lg text-center hover:shadow-xl transition">
+      <p className="text-slate-400 text-sm">{title}</p>
+      <p className="text-3xl font-bold mt-2">{value}</p>
     </div>
   );
 }
 
+/* ======================================================
+   CREATE / EDIT MODAL (CLIENT DROPDOWN FIXED)
+====================================================== */
 
-
-
-
- function CreateProjectModal({ closeModal, refreshProjects }) {
-  const [form, setForm] = useState({
-    name: "",
-    description: "",
-    status: "active",
-    clientId: "",
-  });
-
+function CreateProjectModal({ project, closeModal, refreshProjects }) {
   const [clients, setClients] = useState([]);
-  const [loadingClients, setLoadingClients] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-
-  const baseUrl =
-    process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
-
-  /* ============================
-     AUTH HEADERS
-  ============================ */
-  const getAuthHeaders = () => ({
-    Authorization:
-      typeof window !== "undefined"
-        ? `Bearer ${localStorage.getItem("token")}`
-        : "",
+  const [form, setForm] = useState({
+    name: project?.name || "",
+    description: project?.description || "",
+    status: project?.status || "active",
+    clientId: project?.clientId || "",
   });
 
-  /* ============================
-     FETCH CLIENTS
-  ============================ */
+  const isEdit = Boolean(project);
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+
+  const headers = () => ({
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${localStorage.getItem("token")}`,
+  });
+
   useEffect(() => {
-    fetchClients();
+    axios
+      .get(`${baseUrl}/clients`, { headers: headers() })
+      .then(res => setClients(res.data || []))
+      .catch(() => setClients([]));
   }, []);
 
-const fetchClients = async () => {
+  const submit = async (e) => {
+    e.preventDefault();
+    try {
+      await fetch(
+        isEdit ? `${baseUrl}/projects/${project.id}` : `${baseUrl}/projects`,
+        {
+          method: isEdit ? "PUT" : "POST",
+          headers: headers(),
+          body: JSON.stringify(form),
+        }
+      );
+      toast.success(isEdit ? "Project updated" : "Project created");
+      refreshProjects();
+      closeModal();
+    } catch {
+      toast.error("Save failed");
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <form onSubmit={submit} className="bg-slate-900 p-6 rounded-2xl w-full max-w-lg space-y-4">
+        <h2 className="text-xl font-semibold">
+          {isEdit ? "Edit Project" : "Create Project"}
+        </h2>
+
+        <input
+          placeholder="Project Name"
+          value={form.name}
+          onChange={e => setForm({ ...form, name: e.target.value })}
+          className="w-full p-2 bg-slate-800 rounded"
+          required
+        />
+
+        <textarea
+          placeholder="Description"
+          value={form.description}
+          onChange={e => setForm({ ...form, description: e.target.value })}
+          className="w-full p-2 bg-slate-800 rounded"
+        />
+
+        {/* CLIENT DROPDOWN */}
+        <select
+          value={form.clientId}
+          onChange={e => setForm({ ...form, clientId: e.target.value })}
+          className="w-full p-2 bg-slate-800 rounded"
+          required
+        >
+          <option value="">Select Client</option>
+          {clients.map(c => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+
+        <select
+          value={form.status}
+          onChange={e => setForm({ ...form, status: e.target.value })}
+          className="w-full p-2 bg-slate-800 rounded"
+        >
+          <option value="active">Active</option>
+          <option value="on-hold">On Hold</option>
+          <option value="completed">Completed</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={closeModal} className="px-5 py-2 bg-slate-700 rounded-full">
+            Cancel
+          </button>
+          <button type="submit" className="px-5 py-2 bg-blue-600 rounded-full">
+            {isEdit ? "Update" : "Create"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+/* ======================================================
+   ASSIGN USER MODAL
+====================================================== */
+
+function AssignUserModal({ project, closeModal }) {
+  const [allUsers, setAllUsers] = useState([]);
+  const [members, setMembers] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedUser, setSelectedUser] = useState("");
+
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+
+  const authHeaders = () => ({
+    Authorization: `Bearer ${localStorage.getItem("token")}`,
+  });
+
+  /* =========================
+     FETCH USERS + MEMBERS
+  ========================= */
+const fetchData = async () => {
   try {
-    setLoadingClients(true);
+    setLoading(true);
 
-    const res = await fetch(`${baseUrl}/clients`, {
-      headers: {
-        ...getAuthHeaders(),
-      },
-    });
+    const [usersRes, membersRes] = await Promise.all([
+      axios.get(`${baseUrl}/users`, { headers: authHeaders() }),
+      axios.get(
+        `${baseUrl}/project-members/${project.id}/members`,
+        { headers: authHeaders() }
+      ),
+    ]);
 
-    const json = await res.json();
+    // USERS
+    const users =
+      Array.isArray(usersRes.data?.data)
+        ? usersRes.data.data
+        : Array.isArray(usersRes.data)
+        ? usersRes.data
+        : [];
 
-    // FIX: API returns array directly
-    setClients(Array.isArray(json) ? json : []);
+    // MEMBERS — FIXED FOR YOUR RESPONSE
+    const projectMembers =
+      Array.isArray(membersRes.data?.members?.data)
+        ? membersRes.data.members.data
+        : [];
+
+    setAllUsers(users);
+    setMembers(projectMembers);
   } catch (err) {
-    console.error("Fetch clients failed", err);
-    setClients([]);
+    toast.error("Failed to load users");
+    setAllUsers([]);
+    setMembers([]);
   } finally {
-    setLoadingClients(false);
+    setLoading(false);
   }
 };
 
 
-  /* ============================
-     FORM HANDLERS
-  ============================ */
-  const handleChange = (e) => {
-    setForm((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    if (!form.clientId) {
-      toast.error("Please select a client");
-      return;
-    }
-
-    try {
-      setSubmitting(true);
-
-      const res = await fetch(`${baseUrl}/projects`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...getAuthHeaders(),
-        },
-        body: JSON.stringify(form),
-      });
-
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.message || "Failed to create project");
-
-      toast.success("Project created successfully");
-      refreshProjects();
-      closeModal();
-    } catch (err) {
-      toast.error(err.message);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  /* ============================
-     UI
-  ============================ */
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-slate-900 w-full max-w-lg rounded-xl border border-slate-700 p-6">
-
-        <h2 className="text-xl font-semibold mb-4 text-white">
-          Create New Project
-        </h2>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-
-          {/* PROJECT NAME */}
-          <div>
-            <label className="text-sm text-slate-300">Project Name</label>
-            <input
-              name="name"
-              required
-              value={form.name}
-              onChange={handleChange}
-              className="w-full mt-1 p-2 rounded bg-slate-800 border border-slate-700 text-white"
-            />
-          </div>
-
-          {/* DESCRIPTION */}
-          <div>
-            <label className="text-sm text-slate-300">Description</label>
-            <textarea
-              name="description"
-              value={form.description}
-              onChange={handleChange}
-              className="w-full mt-1 p-2 rounded bg-slate-800 border border-slate-700 text-white"
-            />
-          </div>
-
-          {/* CLIENT LIST */}
-          <div>
-            <label className="text-sm text-slate-300">Client</label>
-
-            <select
-              name="clientId"
-              value={form.clientId}
-              onChange={handleChange}
-              required
-              className="w-full mt-1 p-2 rounded bg-slate-800 border border-slate-700 text-white"
-            >
-               <option value="">Select client</option>
-  {clients.map((client) => (
-    <option key={client.id} value={client.id}>
-      {client.name}
-    </option>
-  ))}
-            </select>
-
-            {loadingClients && (
-              <p className="text-xs text-slate-400 mt-1">
-                Loading clients...
-              </p>
-            )}
-
-            {!loadingClients && clients.length === 0 && (
-              <p className="text-xs text-red-400 mt-1">
-                No clients found
-              </p>
-            )}
-          </div>
-
-          {/* STATUS */}
-          <div>
-            <label className="text-sm text-slate-300">Status</label>
-            <select
-              name="status"
-              value={form.status}
-              onChange={handleChange}
-              className="w-full mt-1 p-2 rounded bg-slate-800 border border-slate-700 text-white"
-            >
-              <option value="active">Active</option>
-              <option value="on-hold">On Hold</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-          </div>
-
-          {/* ACTIONS */}
-          <div className="flex justify-end gap-3 pt-4">
-            <button
-              type="button"
-              onClick={closeModal}
-              className="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 text-white"
-            >
-              Cancel
-            </button>
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white"
-            >
-              {submitting ? "Creating..." : "Create Project"}
-            </button>
-          </div>
-
-        </form>
-      </div>
-    </div>
-  );
-}
 
 
-
-
-function AssignUserModal({ project, closeModal }) {
-  const [users, setUsers] = useState([]);
-  const [assignedUsers, setAssignedUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL;
-
- const getAuthHeaders = () => {
-  if (typeof window === "undefined") return {}; // Prevent server-side access
-  const token = localStorage.getItem("token");
-  return {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  };
-};
-
-
-  /* FETCH ALL USERS AND ASSIGNED USERS */
   useEffect(() => {
-    if (!project) return;
-    fetchUsers();
-    fetchAssignedUsers();
-  }, [project]);
+    fetchData();
+  }, []);
 
-  const fetchUsers = async () => {
-    try {
-      setLoading(true);
-      const res = await axios.get(`${baseUrl}/users/`, getAuthHeaders());
-      setUsers(res?.data || []);
-    } catch (err) {
-      toast.error("Failed to load users");
-      setUsers([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  /* =========================
+     ADD USER
+  ========================= */
+  const addUser = async () => {
+    if (!selectedUser) return;
 
-  const fetchAssignedUsers = async () => {
     try {
-      const res = await axios.get(
-        `${baseUrl}/project-members/${project.id}/members`,
-        getAuthHeaders()
-      );
-      setAssignedUsers(res?.data?.members?.data || []);
-    } catch (err) {
-      toast.error("Failed to load assigned users");
-      setAssignedUsers([]);
-    }
-  };
-
-  /* ASSIGN USER */
-  const assignUser = async (userId) => {
-    try {
-      const res = await axios.post(
+      await axios.post(
         `${baseUrl}/project-members/${project.id}/add-user`,
-        { userId },
-        getAuthHeaders()
+        { userId: selectedUser },
+        { headers: authHeaders() }
       );
-
-      toast.success("User assigned!");
-      // Refresh the assigned users list from API
-      fetchAssignedUsers();
+      toast.success("User added to project");
+      setSelectedUser("");
+      fetchData();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Failed to assign user");
+      toast.error(err.response?.data?.message || "Add failed");
     }
   };
 
-  /* CHECK ALREADY ASSIGNED */
-  const isAssigned = (id) =>
-    assignedUsers.some((u) => Number(u.id) === Number(id));
+  /* =========================
+     REMOVE USER
+  ========================= */
+  const removeUser = async (userId) => {
+    if (!confirm("Remove user from project?")) return;
+
+    try {
+      await axios.delete(
+        `${baseUrl}/project-members/${project.id}/remove-user/${userId}`,
+        { headers: authHeaders() }
+      );
+      toast.success("User removed");
+      fetchData();
+    } catch {
+      toast.error("Remove failed");
+    }
+  };
+
+  /* =========================
+     FILTER USERS NOT ADDED
+  ========================= */
+const safeMembers = Array.isArray(members) ? members : [];
+
+const availableUsers = allUsers.filter(
+  u => !safeMembers.some(m => m.id === u.id)
+);
+
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50">
-      <div className="bg-slate-900 p-6 rounded-xl w-full max-w-xl border border-slate-700">
-        <h2 className="text-xl font-semibold mb-4">
-          Assign Users to: {project?.name}
-        </h2>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-slate-900 p-6 rounded-2xl w-full max-w-lg space-y-4">
+        <h2 className="text-xl font-semibold">Assign Users</h2>
 
-        {/* ASSIGNED USERS LIST */}
-        <h3 className="text-lg font-semibold mt-3 mb-2">Assigned Users</h3>
-        {assignedUsers.length === 0 ? (
-          <p className="text-slate-400 mb-4">No users assigned yet.</p>
-        ) : (
-          <div className="space-y-2 mb-4">
-            {assignedUsers.map((user) => (
+        {/* ADD USER */}
+        <div className="flex gap-2">
+          <select
+            value={selectedUser}
+            onChange={e => setSelectedUser(e.target.value)}
+            className="flex-1 p-2 bg-slate-800 rounded"
+          >
+            <option value="">Select user</option>
+            {availableUsers.map(u => (
+              <option key={u.id} value={u.id}>
+                {u.name} ({u.email})
+              </option>
+            ))}
+          </select>
+
+          <button
+            onClick={addUser}
+            className="bg-blue-600 px-4 rounded-full"
+          >
+            Add
+          </button>
+        </div>
+
+        {/* MEMBERS LIST */}
+        <div className="space-y-2 max-h-64 overflow-auto">
+          {loading ? (
+            <p className="text-slate-400">Loading...</p>
+          ) : members.length === 0 ? (
+            <p className="text-slate-400">No users assigned</p>
+          ) : (
+            members.map(user => (
               <div
                 key={user.id}
-                className="flex items-center justify-between bg-slate-800 p-2 rounded-lg border border-slate-700"
+                className="flex justify-between items-center bg-slate-800 p-3 rounded-xl"
               >
-                <div className="flex items-center gap-3">
-                  <img
-                    src={user.avatar || "/avatar.jpg"}
-                    className="w-8 h-8 rounded-full"
-                  />
-                  <div>
-                    <div className="text-slate-200 text-sm">{user.name}</div>
-                    <div className="text-slate-400 text-xs">{user.email}</div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* ALL USERS LIST */}
-        <h3 className="text-lg font-semibold mt-6 mb-2">All Users</h3>
-        {loading ? (
-          <p className="text-slate-400">Loading...</p>
-        ) : (
-          <div className="max-h-64 overflow-y-auto space-y-2">
-            {users.map((user) => (
-              <div
-                key={user.id}
-                className="flex items-center justify-between bg-slate-800 p-2 rounded-lg border border-slate-700"
-              >
-                <div className="flex items-center gap-3">
-                  <img
-                    src={user.avatar || "/avatar.jpg"}
-                    className="w-8 h-8 rounded-full"
-                  />
-                  <div>
-                    <div className="text-slate-200 text-sm">{user.name}</div>
-                    <div className="text-slate-400 text-xs">{user.email}</div>
-                  </div>
+                <div>
+                  <p className="font-medium">{user.name}</p>
+                  <p className="text-xs text-slate-400">{user.email}</p>
                 </div>
 
-                {isAssigned(user.id) ? (
-                  <span className="text-green-400 text-sm">Assigned</span>
-                ) : (
-                  <button
-                    onClick={() => assignUser(user.id)}
-                    className="px-3 py-1 bg-blue-600 rounded hover:bg-blue-700 text-sm"
-                  >
-                    + Add
-                  </button>
-                )}
+                <button
+                  onClick={() => removeUser(user.id)}
+                  className="text-red-400 bg-red-600/20 px-3 py-1 rounded-full"
+                >
+                  Remove
+                </button>
               </div>
-            ))}
-          </div>
-        )}
+            ))
+          )}
+        </div>
 
-        {/* ACTION BUTTONS */}
-        <div className="flex justify-end mt-6">
+        {/* ACTIONS */}
+        <div className="flex justify-end">
           <button
             onClick={closeModal}
-            className="px-4 py-2 bg-slate-700 rounded-lg hover:bg-slate-600"
+            className="px-6 py-2 bg-slate-700 rounded-full"
           >
             Close
           </button>
@@ -599,4 +549,3 @@ function AssignUserModal({ project, closeModal }) {
     </div>
   );
 }
-
