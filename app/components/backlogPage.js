@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { Toaster, toast } from 'react-hot-toast';
@@ -15,7 +15,6 @@ export default function BacklogPage() {
   const { currentProject } = useProject();
   const projectId = currentProject?.id;
 
-  const hasFetched = useRef(false);
   const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
   const [isAssigneeModalOpen, setIsAssigneeModalOpen] = useState(false);
@@ -40,7 +39,7 @@ export default function BacklogPage() {
     }
   }, []);
 
-  // ---------------- SAFE FETCH FUNCTION WITH TIMEOUT ----------------
+  // ---------------- SAFE FETCH ----------------
   const fetchWithTimeout = async (url, options = {}, timeout = 8000) => {
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeout);
@@ -56,11 +55,12 @@ export default function BacklogPage() {
   };
 
   // ---------------- FETCH BACKLOG + USERS ----------------
-  const fetchBacklog = async () => {
-    if (!token || !projectId) return;
+  const fetchBacklog = async (projId) => {
+    if (!token || !projId) return;
 
     try {
-      const data = await fetchWithTimeout(`${baseUrl}/tasks/backlog/${projectId}`, {
+      setLoading(true);
+      const data = await fetchWithTimeout(`${baseUrl}/tasks/backlog/${projId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -83,6 +83,8 @@ export default function BacklogPage() {
     } catch (err) {
       console.error("Error loading backlog:", err);
       toast.error("Failed to load backlog");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -103,13 +105,19 @@ export default function BacklogPage() {
     }
   };
 
+  // ---------------- REFRESH DATA ON PROJECT CHANGE ----------------
   useEffect(() => {
-    if (token && projectId && !hasFetched.current) {
-      hasFetched.current = true;
-      fetchBacklog();
+    if (projectId && token) {
+      // Reset old data
+      setBacklogIssues([]);
+      setCurrentSprintIssues([]);
+      setForm({ ...form, projectId });
+
+      // Fetch new data
+      fetchBacklog(projectId);
       fetchUsers();
     }
-  }, [token, projectId]);
+  }, [projectId, token]); // Run every time project changes
 
   // ---------------- CREATE TASK ----------------
   const handleCreateIssue = async () => {
@@ -127,9 +135,9 @@ export default function BacklogPage() {
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       });
 
-      await fetchBacklog();
+      await fetchBacklog(currentProject.id);
       setIsModalOpen(false);
-      setForm({ title: "", description: "", priority: "medium", type: "task", assigneeId: null, projectId });
+      setForm({ title: "", description: "", priority: "medium", type: "task", assigneeId: null, projectId: currentProject.id });
       toast.success("Issue created successfully!");
     } catch (err) {
       console.error("Error creating task:", err);
@@ -138,6 +146,7 @@ export default function BacklogPage() {
       setLoading(false);
     }
   };
+
 
   // ---------------- DRAG & DROP ----------------
   const onDragEnd = (result) => {
