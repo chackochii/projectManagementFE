@@ -4,8 +4,10 @@ import { useState, useEffect } from "react";
 import { FiMail, FiLock } from "react-icons/fi";
 import { toast, Toaster } from "react-hot-toast";
 import { useRouter } from "next/navigation";
+import { useProject } from "../context/ProjectContext";
 
 export default function EmployeeLoginPage() {
+  const { refreshUser } = useProject();
   const [form, setForm] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -39,6 +41,7 @@ export default function EmployeeLoginPage() {
         if (typeof window !== "undefined") {
           localStorage.setItem("employeeToken", data.token);
           localStorage.setItem("employeeUser", JSON.stringify(data.user));
+          refreshUser(); 
         }
 
         // 🔥 Use router instead of window.location
