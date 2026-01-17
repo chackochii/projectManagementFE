@@ -21,7 +21,6 @@ export default function DashboardPage() {
     done: 0,
   });
 
-  const hasFetched = useRef(false);
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
 
   // Get token safely
@@ -95,12 +94,15 @@ export default function DashboardPage() {
     }
   };
 
-  useEffect(() => {
-    if (!hasFetched.current && projectId && token) {
-      hasFetched.current = true;
-      fetchDashboardData();
-    }
-  }, [projectId, token]);
+ useEffect(() => {
+  if (!projectId || !token) return;
+
+  // Optional: reset old data while fetching new
+  setProjectDetails(null);
+  setUserStats({ todo: 0, inProgress: 0, review: 0, done: 0 });
+
+  fetchDashboardData();
+}, [projectId, token]);
 
   // Timer
   useEffect(() => {
