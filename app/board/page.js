@@ -26,17 +26,19 @@ const fetchWithTimeout = async (url, options = {}, timeout = 8000) => {
 };
 
 export default function Board() {
-  const { currentProject, user } = useProject(); // Use ProjectContext
+  const { currentProject } = useProject(); // Project from context
   const projectId = currentProject?.id;
-  const token = localStorage.getItem("employeeToken"); // OR use user.token if stored
 
+  // -------------------
+  // State
+  // -------------------
+  const [token, setToken] = useState("");
   const [allColumns, setAllColumns] = useState([
     { id: "todo", title: "To Do", tasks: [] },
     { id: "in-progress", title: "In Progress", tasks: [] },
     { id: "review", title: "Review", tasks: [] },
     { id: "done", title: "Done", tasks: [] },
   ]);
-
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedUser, setSelectedUser] = useState("all");
   const [users, setUsers] = useState([]);
@@ -44,9 +46,19 @@ export default function Board() {
 
   const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
 
-  // =====================
-  // Derived (Filtered) Columns
-  // =====================
+  // -------------------
+  // Load token (client only)
+  // -------------------
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const t = localStorage.getItem("employeeToken");
+      if (t) setToken(t);
+    }
+  }, []);
+
+  // -------------------
+  // Filtered Columns
+  // -------------------
   const filteredColumns = allColumns.map((col) => ({
     ...col,
     tasks: col.tasks.filter((task) => {
@@ -57,80 +69,78 @@ export default function Board() {
     }),
   }));
 
-  // =====================
-  // Fetch Tasks
-  // =====================
-  const fetchTasks = async () => {
+  // -------------------
+  // Fetch Tasks & Users
+  // -------------------
+  useEffect(() => {
     if (!projectId || !token) return;
 
-    setLoading(true);
-    const statuses = ["todo", "in-progress", "review", "done"];
+    const fetchData = async () => {
+      setLoading(true);
 
-    try {
-      const requests = statuses.map((status) =>
-        fetchWithTimeout(`${baseUrl}/tasks/status/${status}/${projectId}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        })
-      );
+      // Reset columns
+      setAllColumns([
+        { id: "todo", title: "To Do", tasks: [] },
+        { id: "in-progress", title: "In Progress", tasks: [] },
+        { id: "review", title: "Review", tasks: [] },
+        { id: "done", title: "Done", tasks: [] },
+      ]);
 
-      const results = await Promise.all(requests);
+      // Fetch tasks by status
+      try {
+        const statuses = ["todo", "in-progress", "review", "done"];
+        const taskResults = await Promise.all(
+          statuses.map((status) =>
+            fetchWithTimeout(`${baseUrl}/tasks/status/${status}/${projectId}`, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            })
+          )
+        );
 
-      setAllColumns((prev) =>
-        prev.map((col, index) => ({
-          ...col,
-          tasks: Array.isArray(results[index])
-            ? results[index].map((task) => ({
-                id: String(task.id),
-                title: task.title,
-                description: task.description,
-                priority: task.priority,
-                assigneeId: task.assigneeId,
-              }))
-            : [],
-        }))
-      );
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to load tasks");
-    } finally {
+        setAllColumns((prev) =>
+          prev.map((col, index) => ({
+            ...col,
+            tasks: Array.isArray(taskResults[index])
+              ? taskResults[index].map((task) => ({
+                  id: String(task.id),
+                  title: task.title,
+                  description: task.description,
+                  priority: task.priority,
+                  assigneeId: task.assigneeId,
+                }))
+              : [],
+          }))
+        );
+      } catch (err) {
+        console.error("Failed to fetch tasks:", err);
+        toast.error("Failed to load tasks");
+      }
+
+      // Fetch users
+      try {
+        const usersData = await fetchWithTimeout(`${baseUrl}/users`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (Array.isArray(usersData)) {
+          setUsers(usersData.filter((u) => u.role !== "admin"));
+        }
+      } catch (err) {
+        console.error("Failed to fetch users:", err);
+      }
+
       setLoading(false);
-    }
-  };
+    };
 
-  // =====================
-  // Fetch Users
-  // =====================
-  const fetchUsers = async () => {
-    if (!token) return;
+    fetchData();
+  }, [projectId, token]); // Re-fetch when project changes
 
-    const data = await fetchWithTimeout(`${baseUrl}/users`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (Array.isArray(data)) {
-      setUsers(data.filter((u) => u.role !== "admin"));
-    }
-  };
-
-  // =====================
-  // Effects
-  // =====================
-  useEffect(() => {
-    if (projectId && token) {
-      fetchTasks();
-      fetchUsers();
-    }
-  }, [projectId, token]); // Re-run whenever currentProject changes
-
-  // =====================
-  // Task Mutations (same as your previous code)
-  // =====================
+  // -------------------
+  // Task Actions
+  // -------------------
   const startTask = (taskId) =>
     fetchWithTimeout(`${baseUrl}/tasks/start/${taskId}`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
 
@@ -144,6 +154,9 @@ export default function Board() {
       body: JSON.stringify({ id: taskId, status }),
     });
 
+  // -------------------
+  // Drag & Drop
+  // -------------------
   const onDragEnd = async ({ source, destination, draggableId }) => {
     if (!destination) return;
 
@@ -161,7 +174,7 @@ export default function Board() {
       return;
     }
 
-    // Optimistic UI
+    // Optimistic UI update
     setAllColumns((prev) => {
       const sourceCol = prev.find((c) => c.id === source.droppableId);
       const destCol = prev.find((c) => c.id === destination.droppableId);
@@ -185,10 +198,18 @@ export default function Board() {
       await updateStatus(draggableId, destination.droppableId);
     } catch {
       toast.error("Failed to update task");
-      fetchTasks();
+      // Reload tasks
+      if (projectId && token) {
+        fetchWithTimeout(`${baseUrl}/tasks/status/todo/${projectId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      }
     }
   };
 
+  // -------------------
+  // Render
+  // -------------------
   return (
     <div>
       <Toaster position="top-right" />
