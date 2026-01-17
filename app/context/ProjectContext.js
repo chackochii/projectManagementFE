@@ -1,90 +1,64 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import axios from "axios";
 
-const ProjectContext = createContext();
+const ProjectContext = createContext({
+  projects: [],
+  currentProject: null,
+  setCurrentProject: () => {},
+  loading: true,
+  user: null,
+  refreshUser: () => {}, // 1. Add this to context
+});
 
 export const ProjectProvider = ({ children }) => {
   const [projects, setProjects] = useState([]);
   const [currentProject, setCurrentProject] = useState(null);
-  const [token, setToken] = useState(null);
-  const [userId, setUserId] = useState(null);
+  const [loading, setLoading] = useState(false); // Change initial to false
+  const [user, setUser] = useState(null);
 
   const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
-  // ---- SAFE TOKEN LOAD ----
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const t = localStorage.getItem("employeeToken");
-      const userData = localStorage.getItem("employeeUser");
-
-      if (t) setToken(t);
-      if (userData) {
-        try {
-          setUserId(JSON.parse(userData)?.id || null);
-        } catch (e) {
-          console.error("Invalid employeeUser JSON");
-        }
-      }
+  // 2. Define fetch logic in a reusable way
+  const fetchProjects = useCallback(async (userId, token) => {
+    setLoading(true);
+    try {
+      const res = await axios.get(
+        `${baseUrl}/project-members/user/${userId}/projects`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const userProjects = res.data.data || [];
+      setProjects(userProjects);
+      if (userProjects.length > 0) setCurrentProject(userProjects[0]);
+    } catch (err) {
+      console.error("Error fetching projects:", err);
+    } finally {
+      setLoading(false);
     }
-  }, []);
+  }, [baseUrl]);
 
-  // ---- SAFE AUTH HEADERS ----
-  const getAuthHeaders = () => {
-    if (!token) return {};
-    return {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    };
-  };
+  // 3. Create a refresh function that components can call manually
+  const refreshUser = useCallback(() => {
+    const storedUser = localStorage.getItem("employeeUser");
+    const token = localStorage.getItem("employeeToken");
 
-  // ---- FETCH PROJECTS WHEN TOKEN + USERID READY ----
-  useEffect(() => {
-    if (!token || !userId) return;
-
-    const fetchProjectsForUser = async () => {
-      try {
-        const res = await axios.get(
-          `${baseUrl}/project-members/user/${userId}/projects`,
-          getAuthHeaders()
-        );
-
-        const userProjects = res.data.data || [];
-        setProjects(userProjects);
-
-        // Set first project automatically
-        if (!currentProject && userProjects.length > 0) {
-          setCurrentProject(userProjects[0]);
-        }
-      } catch (error) {
-        console.error("Error loading user projects:", error);
-      }
-    };
-
-    // Optional: add a small delay (1-2s) if needed for UX
-    const timeoutId = setTimeout(() => {
-      fetchProjectsForUser();
-    }, 1000);
-
-    return () => clearTimeout(timeoutId);
-  }, [token, userId]);
-
-  // ---- AUTO UPDATE PROJECT IF TOKEN CHANGES AFTER LOGIN ----
-  useEffect(() => {
-    if (projects.length > 0 && !currentProject) {
-      setCurrentProject(projects[0]);
+    if (storedUser && token) {
+      const parsedUser = JSON.parse(storedUser);
+      setUser(parsedUser);
+      fetchProjects(parsedUser.id, token);
+    } else {
+      setLoading(false);
     }
-  }, [projects, currentProject]);
+  }, [fetchProjects]);
+
+  useEffect(() => {
+    refreshUser();
+  }, [refreshUser]);
 
   return (
     <ProjectContext.Provider
-      value={{
-        projects,
-        currentProject,
-        setCurrentProject,
-      }}
+      value={{ projects, currentProject, setCurrentProject, loading, user, refreshUser }}
     >
       {children}
     </ProjectContext.Provider>
