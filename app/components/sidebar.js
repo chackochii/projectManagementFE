@@ -2,22 +2,24 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import axios from "axios";
 import {
   FiHome, FiGrid, FiList, FiBarChart2,
-  FiUser, FiMenu, FiX, FiChevronDown, FiBook, FiLogOut, FiFile, FiFlag
+  FiUser, FiMenu, FiChevronDown, FiBook, FiLogOut, FiFile, FiFlag
 } from "react-icons/fi";
 
 import { useProject } from "../context/ProjectContext";
 
 export default function Sidebar() {
-  const { projects, currentProject, setCurrentProject } = useProject();
+  const { projects, currentProject, setCurrentProject, loading } = useProject();
   const [open, setOpen] = useState(false);
   const [showProjects, setShowProjects] = useState(false);
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
 
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+  // ---- Load user from localStorage ----
+  useEffect(() => {
+    const saved = localStorage.getItem("employeeUser");
+    if (saved) setUser(JSON.parse(saved));
+  }, []);
 
   const username = user?.name;
   const role = user?.role;
@@ -43,41 +45,6 @@ export default function Sidebar() {
     if (window.innerWidth < 768) setOpen(false);
   };
 
-  // ---- Load user from localStorage ----
-  useEffect(() => {
-    const saved = localStorage.getItem("employeeUser");
-    const t = localStorage.getItem("employeeToken");
-
-    if (saved) setUser(JSON.parse(saved));
-    if (t) setToken(t);
-  }, []);
-
-  // ---- Call project API if projects empty ----
-  useEffect(() => {
-    if (!token || !user) return;
-    if (projects.length > 0) return; // Already loaded
-
-    const fetchProjects = async () => {
-      try {
-        const res = await axios.get(
-          `${baseUrl}/project-members/user/${user.id}/projects`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-
-        const userProjects = res.data.data || [];
-        if (userProjects.length > 0) {
-          setCurrentProject(userProjects[0]);
-        }
-      } catch (err) {
-        console.error("Error fetching projects:", err);
-      }
-    };
-
-    // Small delay to allow token/user to be ready
-    const timeoutId = setTimeout(fetchProjects, 500);
-    return () => clearTimeout(timeoutId);
-  }, [token, user, projects.length, setCurrentProject]);
-
   return (
     <>
       {/* mobile top bar */}
@@ -86,7 +53,7 @@ export default function Sidebar() {
           <FiMenu size={20} />
         </button>
         <div className="text-slate-200 font-semibold">
-          {currentProject?.name || "Loading..."}
+          {loading ? "Loading..." : currentProject?.name || "No Projects"}
         </div>
         <div className="w-8 h-8 rounded-full bg-slate-700" />
       </div>
@@ -104,13 +71,19 @@ export default function Sidebar() {
                 onClick={() => setShowProjects(!showProjects)}
                 className="flex items-center justify-between w-full bg-slate-800 px-3 py-2 rounded-lg text-white"
               >
-                <span>{currentProject?.name || "Select Project"}</span>
+                <span>
+                  {loading
+                    ? "Loading..."
+                    : currentProject?.name || "Select Project"}
+                </span>
                 <FiChevronDown
-                  className={`transition-transform ${showProjects ? "rotate-180" : "rotate-0"}`}
+                  className={`transition-transform ${
+                    showProjects ? "rotate-180" : "rotate-0"
+                  }`}
                 />
               </button>
 
-              {showProjects && (
+              {showProjects && !loading && projects.length > 0 && (
                 <div className="mt-2 bg-slate-800 rounded-lg overflow-hidden border border-slate-700">
                   {projects.map((p) => (
                     <button
@@ -121,7 +94,9 @@ export default function Sidebar() {
                         if (window.innerWidth < 768) setOpen(false);
                       }}
                       className={`w-full text-left px-3 py-2 hover:bg-slate-700 ${
-                        currentProject?.id === p.id ? "bg-slate-700 text-white" : "text-slate-300"
+                        currentProject?.id === p.id
+                          ? "bg-slate-700 text-white"
+                          : "text-slate-300"
                       }`}
                     >
                       {p.name}
@@ -167,7 +142,7 @@ export default function Sidebar() {
             <button
               onClick={() => {
                 localStorage.removeItem("employeeUser");
-                localStorage.removeItem("token");
+                localStorage.removeItem("employeeToken");
                 window.location.href = "/login";
               }}
               className="flex items-center gap-2 mt-2 p-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition"
