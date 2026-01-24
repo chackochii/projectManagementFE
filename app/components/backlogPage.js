@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { Toaster, toast } from 'react-hot-toast';
@@ -15,6 +15,7 @@ export default function BacklogPage() {
   const { currentProject } = useProject();
   const projectId = currentProject?.id;
 
+  const hasFetched = useRef(false);
   const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
   const [isAssigneeModalOpen, setIsAssigneeModalOpen] = useState(false);
@@ -39,7 +40,7 @@ export default function BacklogPage() {
     }
   }, []);
 
-  // ---------------- SAFE FETCH ----------------
+  // ---------------- SAFE FETCH FUNCTION WITH TIMEOUT ----------------
   const fetchWithTimeout = async (url, options = {}, timeout = 8000) => {
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeout);
@@ -55,12 +56,11 @@ export default function BacklogPage() {
   };
 
   // ---------------- FETCH BACKLOG + USERS ----------------
-  const fetchBacklog = async (projId) => {
-    if (!token || !projId) return;
+  const fetchBacklog = async () => {
+    if (!token || !projectId) return;
 
     try {
-      setLoading(true);
-      const data = await fetchWithTimeout(`${baseUrl}/tasks/backlog/${projId}`, {
+      const data = await fetchWithTimeout(`${baseUrl}/tasks/backlog/${projectId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -83,8 +83,6 @@ export default function BacklogPage() {
     } catch (err) {
       console.error("Error loading backlog:", err);
       toast.error("Failed to load backlog");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -105,19 +103,13 @@ export default function BacklogPage() {
     }
   };
 
-  // ---------------- REFRESH DATA ON PROJECT CHANGE ----------------
   useEffect(() => {
-    if (projectId && token) {
-      // Reset old data
-      setBacklogIssues([]);
-      setCurrentSprintIssues([]);
-      setForm({ ...form, projectId });
-
-      // Fetch new data
-      fetchBacklog(projectId);
+    if (token && projectId && !hasFetched.current) {
+      hasFetched.current = true;
+      fetchBacklog();
       fetchUsers();
     }
-  }, [projectId, token]); // Run every time project changes
+  }, [token, projectId]);
 
   // ---------------- CREATE TASK ----------------
   const handleCreateIssue = async () => {
@@ -135,9 +127,9 @@ export default function BacklogPage() {
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       });
 
-      await fetchBacklog(currentProject.id);
+      await fetchBacklog();
       setIsModalOpen(false);
-      setForm({ title: "", description: "", priority: "medium", type: "task", assigneeId: null, projectId: currentProject.id });
+      setForm({ title: "", description: "", priority: "medium", type: "task", assigneeId: null, projectId });
       toast.success("Issue created successfully!");
     } catch (err) {
       console.error("Error creating task:", err);
@@ -146,7 +138,6 @@ export default function BacklogPage() {
       setLoading(false);
     }
   };
-
 
   // ---------------- DRAG & DROP ----------------
   const onDragEnd = (result) => {
@@ -239,22 +230,6 @@ export default function BacklogPage() {
   setSelectedTask(task);
   setIsAssigneeModalOpen(true);
 };
-
-  // ---------------- TASK ROW ----------------
-  const TaskRow = ({ task, provided }) => (
-    <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} className="grid grid-cols-6 px-4 py-3 text-gray-300 hover:bg-[#1e293b] border-b border-[#243349] cursor-grab">
-      <div>{task.id}</div>
-      <div className="font-medium text-white">{task.title}</div>
-      <div>{task.description}</div>
-      <div>
-        <span className={`px-2 py-1 rounded text-xs capitalize ${task.priority === "high" ? "bg-red-500/20 text-red-400" : task.priority === "medium" ? "bg-yellow-500/20 text-yellow-400" : "bg-green-500/20 text-green-400"}`}>
-          {task.priority}
-        </span>
-      </div>
-      <div>{task.assigneeId ? task.name : "Unassigned"}</div>
-      <div>{task.sprintId ? `Sprint ${task.sprintId}` : "Backlog"}</div>
-    </div>
-  );
 
   // ---------------- RENDER ----------------
   
@@ -690,30 +665,30 @@ export default function BacklogPage() {
 }
 
 
-const TaskRow = ({ task, provided }) => (
-  <div
-    ref={provided.innerRef}
-    {...provided.draggableProps}
-    {...provided.dragHandleProps}
-    className="grid grid-cols-6 px-4 py-3 text-gray-300 hover:bg-[#1e293b] border-b border-[#243349] cursor-grab"
-  >
-    <div>{task.id}</div>
-    <div className="font-medium text-white">{task.title}</div>
-    <div>{task.description}</div>
-    <div>
-      <span
-        className={`px-2 py-1 rounded text-xs capitalize ${
-          task.priority === "high"
-            ? "bg-red-500/20 text-red-400"
-            : task.priority === "medium"
-            ? "bg-yellow-500/20 text-yellow-400"
-            : "bg-green-500/20 text-green-400"
-        }`}
-      >
-        {task.priority}
-      </span>
-    </div>
-    <div>User {task.assigneeId}</div>
-    <div>{task.sprintId ?? null}</div>
-  </div>
-);
+// const TaskRow = ({ task, provided }) => (
+//   <div
+//     ref={provided.innerRef}
+//     {...provided.draggableProps}
+//     {...provided.dragHandleProps}
+//     className="grid grid-cols-6 px-4 py-3 text-gray-300 hover:bg-[#1e293b] border-b border-[#243349] cursor-grab"
+//   >
+//     <div>{task.id}</div>
+//     <div className="font-medium text-white">{task.title}</div>
+//     <div>{task.description}</div>
+//     <div>
+//       <span
+//         className={`px-2 py-1 rounded text-xs capitalize ${
+//           task.priority === "high"
+//             ? "bg-red-500/20 text-red-400"
+//             : task.priority === "medium"
+//             ? "bg-yellow-500/20 text-yellow-400"
+//             : "bg-green-500/20 text-green-400"
+//         }`}
+//       >
+//         {task.priority}
+//       </span>
+//     </div>
+//     <div>User {task.assigneeId}</div>
+//     <div>{task.sprintId ?? null}</div>
+//   </div>
+// );
