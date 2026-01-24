@@ -1,69 +1,146 @@
 "use client";
 
-import { Search, UserPlus, MoreVertical, Edit, Trash2 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Search, UserPlus, MoreVertical, Edit, Trash2, X } from "lucide-react";
+import { useState, useEffect, useMemo, useCallback, memo } from "react";
 import axios from "axios";
 import { toast, Toaster } from "react-hot-toast";
 
+// --- Memoized Row Component to prevent table re-renders ---
+const UserRow = memo(({ user, onEdit, onDelete, onStatusChange }) => {
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  return (
+    <tr className="border-b border-slate-800 hover:bg-slate-800/50 transition">
+      <td className="p-4">{user.name}</td>
+      <td className="p-4 text-slate-400">{user.email}</td>
+      <td className="p-4">
+        <span className="px-2 py-1 bg-slate-800 rounded-lg text-slate-300 text-sm">
+          {user.role}
+        </span>
+      </td>
+      <td className="p-4">
+        {user.status === "active" ? (
+          <span className="px-2 py-1 bg-green-900/40 text-green-400 rounded-lg text-sm">
+            Active
+          </span>
+        ) : (
+          <span className="px-2 py-1 bg-red-900/40 text-red-400 rounded-lg text-sm">
+            Suspended
+          </span>
+        )}
+      </td>
+      <td className="p-4 text-right relative">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setMenuOpen(!menuOpen);
+          }}
+          className="p-2 hover:bg-slate-700 rounded-lg transition"
+        >
+          <MoreVertical size={18} className="text-slate-400" />
+        </button>
+
+        {menuOpen && (
+          <>
+            <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+            <div className="absolute right-4 mt-2 w-44 bg-slate-800 border border-slate-700 rounded-xl shadow-lg z-20 text-left overflow-hidden">
+              <button
+                className="w-full text-left px-4 py-2 hover:bg-slate-700 flex items-center gap-2"
+                onClick={() => { onEdit(user); setMenuOpen(false); }}
+              >
+                <Edit size={16} /> Edit
+              </button>
+              <button
+                className="w-full text-left px-4 py-2 text-red-400 hover:bg-red-900/40 flex items-center gap-2"
+                onClick={() => { onDelete(user.id); setMenuOpen(false); }}
+              >
+                <Trash2 size={16} /> Delete
+              </button>
+              <button
+                className="w-full text-left px-4 py-2 hover:bg-slate-700"
+                onClick={() => { onStatusChange(user.id, "active"); setMenuOpen(false); }}
+              >
+                Activate
+              </button>
+              <button
+                className="w-full text-left px-4 py-2 text-red-400 hover:bg-red-900/40"
+                onClick={() => { onStatusChange(user.id, "suspended"); setMenuOpen(false); }}
+              >
+                Suspend
+              </button>
+            </div>
+          </>
+        )}
+      </td>
+    </tr>
+  );
+});
+UserRow.displayName = "UserRow";
+
 export default function UsersPage() {
+  const [mounted, setMounted] = useState(false);
+  const [users, setUsers] = useState([]);
   const [search, setSearch] = useState("");
-  const [open, setOpen] = useState(false); // Add User Modal
-  const [editOpen, setEditOpen] = useState(false); // Edit User Modal
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
   const [token, setToken] = useState("");
   const [errors, setErrors] = useState({});
-  const [openMenuId, setOpenMenuId] = useState(null);
-  const [dropdownPos, setDropdownPos] = useState({ x: 0, y: 0 });
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [users, setUsers] = useState([]);
+
+  const [form, setForm] = useState({
+    name: "", email: "", password: "", role: "developer",
+    address: "", phone: "", identification: "",
+  });
 
   const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    password: "",
-    role: "developer",
-    address: "",
-    phone: "",
-    identification: "",
-  });
-
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
-
-  // Load token and redirect if missing
+  // 1. SSR Safety & Token Check
   useEffect(() => {
+    setMounted(true);
     const t = localStorage.getItem("token");
-    if (!t) return (window.location.href = "/admin");
-    setToken(t);
+    if (!t) {
+      window.location.href = "/admin";
+    } else {
+      setToken(t);
+    }
   }, []);
 
-  // Fetch users
-  useEffect(() => {
-    if (token) fetchUsers();
-  }, [token]);
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
+    if (!token) return;
     try {
       const res = await axios.get(`${baseUrl}/users`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setUsers(res.data.filter(u => u.status !== "blocked")); // Hide blocked users
+      setUsers(res.data.filter(u => u.status !== "blocked"));
     } catch (err) {
-      console.log(err);
+      console.error(err);
     }
+  }, [token, baseUrl]);
+
+  useEffect(() => {
+    if (mounted && token) fetchUsers();
+  }, [mounted, token, fetchUsers]);
+
+  // 2. Optimized Search (useMemo prevents filtering on form typing)
+  const filteredUsers = useMemo(() => {
+    const query = search.toLowerCase();
+    return users.filter((u) => u.name.toLowerCase().includes(query));
+  }, [users, search]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: false }));
   };
 
   const validate = () => {
     const newErrors = {};
     if (!form.name) newErrors.name = true;
     if (!form.email) newErrors.email = true;
-    if (!form.password && !editOpen) newErrors.password = true; // only require password on add
+    if (!form.password && !isEditMode) newErrors.password = true;
     if (!form.phone) newErrors.phone = true;
     if (!form.identification) newErrors.identification = true;
     if (!form.address) newErrors.address = true;
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -72,53 +149,37 @@ export default function UsersPage() {
     if (!validate()) return toast.error("Please fill all required fields!");
 
     try {
-      if (editOpen) {
-        // EDIT USER
+      if (isEditMode) {
         await axios.put(`${baseUrl}/users/${selectedUser.id}`, form, {
           headers: { Authorization: `Bearer ${token}` },
         });
         toast.success("User updated successfully!");
-        setEditOpen(false);
-        setSelectedUser(null);
       } else {
-        // CREATE USER
         await axios.post(`${baseUrl}/users/register`, form, {
           headers: { Authorization: `Bearer ${token}` },
         });
         toast.success("User created successfully!");
-        setOpen(false);
       }
-
-      setForm({
-        name: "",
-        email: "",
-        password: "",
-        role: "developer",
-        address: "",
-        phone: "",
-        identification: "",
-      });
+      closeModal();
       fetchUsers();
     } catch (err) {
       toast.error(err.response?.data?.error || err.message);
     }
   };
 
-  const updateStatus = async (id, status) => {
+  const updateStatus = useCallback(async (id, status) => {
     try {
-      await axios.post(
-        `${baseUrl}/users/status`,
-        { id, status },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await axios.post(`${baseUrl}/users/status`, { id, status }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       toast.success(`User ${status === "active" ? "activated" : "suspended"}!`);
       fetchUsers();
     } catch (err) {
       toast.error(err.response?.data?.error || "Failed to update status");
     }
-  };
+  }, [token, baseUrl, fetchUsers]);
 
-  const deleteUser = async (id) => {
+  const deleteUser = useCallback(async (id) => {
     if (!confirm("Are you sure you want to delete this user?")) return;
     try {
       await axios.delete(`${baseUrl}/users/${id}`, {
@@ -129,43 +190,41 @@ export default function UsersPage() {
     } catch (err) {
       toast.error(err.response?.data?.error || "Failed to delete user");
     }
-  };
+  }, [token, baseUrl, fetchUsers]);
 
   const openEditModal = (user) => {
     setSelectedUser(user);
     setForm({
-      name: user.name,
-      email: user.email,
-      password: "",
-      role: user.role,
-      address: user.address,
-      phone: user.phone,
+      name: user.name, email: user.email, password: "",
+      role: user.role, address: user.address, phone: user.phone,
       identification: user.identification,
     });
-    setEditOpen(true);
+    setIsEditMode(true);
+    setIsModalOpen(true);
   };
 
-  // Close dropdown on outside click
-  useEffect(() => {
-    const close = () => setOpenMenuId(null);
-    window.addEventListener("click", close);
-    return () => window.removeEventListener("click", close);
-  }, []);
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setIsEditMode(false);
+    setSelectedUser(null);
+    setErrors({});
+    setForm({
+      name: "", email: "", password: "", role: "developer",
+      address: "", phone: "", identification: "",
+    });
+  };
 
-  const filteredUsers = users.filter((u) =>
-    u.name.toLowerCase().includes(search.toLowerCase())
-  );
+  if (!mounted) return null; // Prevent hydration mismatch
 
   return (
-    <div className="p-4 md:p-6 text-white">
+    <div className="p-4 md:p-6 text-white min-h-screen">
       <Toaster position="top-right" />
 
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
         <h1 className="text-3xl font-bold">Employees</h1>
-
         <button
-          onClick={() => setOpen(true)}
+          onClick={() => setIsModalOpen(true)}
           className="mt-4 md:mt-0 flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-xl transition"
         >
           <UserPlus size={18} /> Add User
@@ -177,14 +236,14 @@ export default function UsersPage() {
         <input
           type="text"
           placeholder="Search users..."
-          className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 pl-10 pr-3 text-sm focus:outline-none"
+          className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 pl-10 pr-3 text-sm focus:outline-none focus:border-blue-500 transition"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
         <Search className="absolute left-3 top-2.5 text-slate-500 w-5 h-5" />
       </div>
 
-      {/* TABLE FOR DESKTOP */}
+      {/* Desktop Table */}
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full border border-slate-800 rounded-xl overflow-hidden">
           <thead className="bg-slate-900">
@@ -196,178 +255,71 @@ export default function UsersPage() {
               <th className="text-right p-4 border-b border-slate-800">Actions</th>
             </tr>
           </thead>
-
           <tbody>
             {filteredUsers.map((user) => (
-              <tr key={user.id} className="border-b border-slate-800 hover:bg-slate-800/50 transition">
-                <td className="p-4">{user.name}</td>
-                <td className="p-4 text-slate-400">{user.email}</td>
-                <td className="p-4">
-                  <span className="px-2 py-1 bg-slate-800 rounded-lg text-slate-300 text-sm">
-                    {user.role}
-                  </span>
-                </td>
-                <td className="p-4">
-                  {user.status === "active" ? (
-                    <span className="px-2 py-1 bg-green-900/40 text-green-400 rounded-lg text-sm">
-                      Active
-                    </span>
-                  ) : (
-                    <span className="px-2 py-1 bg-red-900/40 text-red-400 rounded-lg text-sm">
-                      Suspended
-                    </span>
-                  )}
-                </td>
-                <td className="p-4 text-right relative">
-                  {/* ACTION MENU */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      setDropdownPos({ x: rect.right, y: rect.bottom });
-                      setOpenMenuId(openMenuId === user.id ? null : user.id);
-                    }}
-                    className="p-2 hover:bg-slate-700 rounded-lg transition"
-                  >
-                    <MoreVertical size={18} className="text-slate-400" />
-                  </button>
-
-                  {openMenuId === user.id && (
-                    <div
-                      className="fixed w-44 bg-slate-800 border border-slate-700 rounded-xl shadow-lg z-50"
-                      style={{ top: dropdownPos.y, left: dropdownPos.x - 180 }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <button
-                        className="w-full text-left px-4 py-2 hover:bg-slate-700 flex items-center gap-2"
-                        onClick={() => {
-                          openEditModal(user);
-                          setOpenMenuId(null);
-                        }}
-                      >
-                        <Edit size={16} /> Edit
-                      </button>
-
-                      <button
-                        className="w-full text-left px-4 py-2 text-red-400 hover:bg-red-900/40 flex items-center gap-2"
-                        onClick={() => {
-                          deleteUser(user.id);
-                          setOpenMenuId(null);
-                        }}
-                      >
-                        <Trash2 size={16} /> Delete
-                      </button>
-
-                      <button
-                        className="w-full text-left px-4 py-2 hover:bg-slate-700"
-                        onClick={() => {
-                          updateStatus(user.id, "active");
-                          setOpenMenuId(null);
-                        }}
-                      >
-                        Activate
-                      </button>
-
-                      <button
-                        className="w-full text-left px-4 py-2 text-red-400 hover:bg-red-900/40"
-                        onClick={() => {
-                          updateStatus(user.id, "suspended");
-                          setOpenMenuId(null);
-                        }}
-                      >
-                        Suspend
-                      </button>
-                    </div>
-                  )}
-                </td>
-              </tr>
+              <UserRow
+                key={user.id}
+                user={user}
+                onEdit={openEditModal}
+                onDelete={deleteUser}
+                onStatusChange={updateStatus}
+              />
             ))}
           </tbody>
         </table>
-
         {filteredUsers.length === 0 && (
-          <p className="text-slate-500 text-sm mt-4">No users found.</p>
+          <p className="text-slate-500 text-sm mt-4 text-center">No users found.</p>
         )}
       </div>
 
-      {/* MOBILE VIEW */}
+      {/* Mobile View */}
       <div className="md:hidden space-y-4 mt-4">
         {filteredUsers.map((user) => (
-          <div
-            key={user.id}
-            className="bg-slate-900 rounded-xl p-4 border border-slate-800"
-          >
+          <div key={user.id} className="bg-slate-900 rounded-xl p-4 border border-slate-800">
             <div className="flex justify-between items-center">
               <h2 className="text-lg font-bold">{user.name}</h2>
-              <span className="text-slate-400 text-sm">{user.status}</span>
-            </div>
-
-            <p className="text-slate-400 text-sm mt-1">{user.email}</p>
-
-            <div className="flex flex-wrap items-center gap-2 mt-2">
-              <span className="px-2 py-1 bg-slate-800 rounded-lg text-slate-300 text-sm">
-                {user.role}
+              <span className={`text-sm ${user.status === 'active' ? 'text-green-400' : 'text-red-400'}`}>
+                {user.status}
               </span>
             </div>
-
+            <p className="text-slate-400 text-sm mt-1">{user.email}</p>
+            <div className="mt-2 flex items-center gap-2">
+              <span className="px-2 py-1 bg-slate-800 rounded-lg text-slate-300 text-sm">{user.role}</span>
+            </div>
             <div className="flex justify-end gap-2 mt-3">
-              <button
-                onClick={() => openEditModal(user)}
-                className="px-3 py-1 bg-blue-600 rounded-lg text-sm flex items-center gap-1"
-              >
-                <Edit size={14} /> Edit
-              </button>
-              <button
-                onClick={() => deleteUser(user.id)}
-                className="px-3 py-1 bg-red-600 rounded-lg text-sm flex items-center gap-1"
-              >
-                <Trash2 size={14} /> Delete
-              </button>
-              {user.status === "active" ? (
-                <button
-                  onClick={() => updateStatus(user.id, "suspended")}
-                  className="px-3 py-1 bg-red-700 rounded-lg text-sm"
-                >
-                  Suspend
-                </button>
-              ) : (
-                <button
-                  onClick={() => updateStatus(user.id, "active")}
-                  className="px-3 py-1 bg-green-600 rounded-lg text-sm"
-                >
-                  Activate
-                </button>
-              )}
+              <button onClick={() => openEditModal(user)} className="px-3 py-1 bg-blue-600 rounded-lg text-sm flex items-center gap-1"><Edit size={14} /> Edit</button>
+              <button onClick={() => deleteUser(user.id)} className="px-3 py-1 bg-red-600 rounded-lg text-sm flex items-center gap-1"><Trash2 size={14} /> Delete</button>
             </div>
           </div>
         ))}
       </div>
 
-      {/* ADD / EDIT MODAL */}
-      {(open || editOpen) && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
-          <div className="bg-slate-900 p-6 rounded-xl w-full max-w-lg">
+      {/* Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[100] backdrop-blur-sm">
+          <div className="bg-slate-900 p-6 rounded-xl w-full max-w-lg border border-slate-800 shadow-2xl">
             <h2 className="text-xl font-bold mb-4">
-              {editOpen ? "Edit Employee" : "Add Employee"}
+              {isEditMode ? "Edit Employee" : "Add Employee"}
             </h2>
 
             <div className="grid grid-cols-1 gap-3">
               {[
-                ["name", "Name"],
-                ["email", "Email"],
-                ["password", "Password"],
-                ["phone", "Phone"],
-                ["identification", "Identification"],
-                ["address", "Address"],
-              ].map(([key, placeholder]) => (
+                ["name", "Name", "text"],
+                ["email", "Email", "email"],
+                ["password", "Password", "password"],
+                ["phone", "Phone", "text"],
+                ["identification", "Identification", "text"],
+                ["address", "Address", "text"],
+              ].map(([key, placeholder, type]) => (
                 <input
                   key={key}
-                  type={key === "password" ? "password" : "text"}
-                  className={`input ${errors[key] ? "error" : ""}`}
                   name={key}
+                  type={type}
+                  className={`input ${errors[key] ? "border-red-500" : ""}`}
                   placeholder={placeholder}
                   value={form[key]}
                   onChange={handleChange}
+                  autoComplete="off"
                 />
               ))}
 
@@ -385,22 +337,10 @@ export default function UsersPage() {
             </div>
 
             <div className="flex justify-end gap-3 mt-6">
-              <button
-                onClick={() => {
-                  setOpen(false);
-                  setEditOpen(false);
-                  setErrors({});
-                  setSelectedUser(null);
-                }}
-                className="px-4 py-2 bg-slate-700 rounded-lg"
-              >
+              <button onClick={closeModal} className="px-4 py-2 bg-slate-700 rounded-lg hover:bg-slate-600 transition">
                 Cancel
               </button>
-
-              <button
-                onClick={handleSubmit}
-                className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700"
-              >
+              <button onClick={handleSubmit} className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700 transition">
                 Save
               </button>
             </div>
@@ -415,9 +355,12 @@ export default function UsersPage() {
           padding: 10px;
           border-radius: 8px;
           color: white;
+          width: 100%;
+          outline: none;
+          transition: border-color 0.2s;
         }
-        .error {
-          border-color: red;
+        .input:focus {
+          border-color: #2563eb;
         }
       `}</style>
     </div>
