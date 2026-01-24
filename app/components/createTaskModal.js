@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import axios from "axios";
 
 export default function CreateTaskModal({ onClose, refresh }) {
@@ -8,53 +8,77 @@ export default function CreateTaskModal({ onClose, refresh }) {
     title: "",
     description: "",
     priority: "medium",
-    assigneeId: "",
   });
 
-  const [token, setToken] = useState(null);
-  const [user, setUser] = useState(null);
+  const [auth, setAuth] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   const baseUrl =
     process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api";
 
+  // Load auth once
   useEffect(() => {
-    const savedToken = localStorage.getItem("employeeToken");
-    const savedUser = localStorage.getItem("employeeUser");
+    const token = localStorage.getItem("employeeToken");
+    const user = localStorage.getItem("employeeUser");
 
-    if (savedToken) setToken(savedToken);
-    if (savedUser) setUser(JSON.parse(savedUser));
+    if (token && user) {
+      setAuth({
+        token,
+        user: JSON.parse(user),
+      });
+    }
   }, []);
 
-  const handleCreate = async () => {
-    try {
-      if (!token) {
-        alert("No auth token found");
-        return;
-      }
+  // Stable axios instance
+  const api = useMemo(() => {
+    if (!auth?.token) return null;
 
-      await axios.post(
-        `${baseUrl}/tasks`,
-        {
-          ...task,
-          reporterId: user?.id,
-          status: "backlog",
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+    return axios.create({
+      baseURL: baseUrl,
+      headers: {
+        Authorization: `Bearer ${auth.token}`,
+      },
+    });
+  }, [auth, baseUrl]);
+
+  const handleCreate = async () => {
+    if (loading) return;
+
+    if (!task.title.trim()) {
+      alert("Task title is required");
+      return;
+    }
+
+    if (!api || !auth?.user?.id) {
+      alert("Authentication error");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      await api.post("/tasks", {
+        ...task,
+        reporterId: auth.user.id,
+        status: "backlog",
+      });
 
       refresh();
       onClose();
     } catch (err) {
-      console.error(err);
+      console.error("Create task failed:", err);
       alert("Failed to create task");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
-      <div className="bg-white p-6 rounded-lg w-96 shadow-lg">
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center">
+      <div
+        className="bg-white p-6 rounded-lg w-96 shadow-lg"
+        onClick={(e) => e.stopPropagation()}
+      >
         <h2 className="text-xl font-semibold mb-4">Create Task</h2>
 
         <input
@@ -62,20 +86,26 @@ export default function CreateTaskModal({ onClose, refresh }) {
           placeholder="Title"
           className="w-full mb-3 border p-2 rounded"
           value={task.title}
-          onChange={(e) => setTask({ ...task, title: e.target.value })}
+          onChange={(e) =>
+            setTask((t) => ({ ...t, title: e.target.value }))
+          }
         />
 
         <textarea
           placeholder="Description"
           className="w-full mb-3 border p-2 rounded"
           value={task.description}
-          onChange={(e) => setTask({ ...task, description: e.target.value })}
-        ></textarea>
+          onChange={(e) =>
+            setTask((t) => ({ ...t, description: e.target.value }))
+          }
+        />
 
         <select
-          className="w-full mb-3 border p-2 rounded"
+          className="w-full mb-4 border p-2 rounded"
           value={task.priority}
-          onChange={(e) => setTask({ ...task, priority: e.target.value })}
+          onChange={(e) =>
+            setTask((t) => ({ ...t, priority: e.target.value }))
+          }
         >
           <option value="low">Low Priority</option>
           <option value="medium">Medium Priority</option>
@@ -84,12 +114,19 @@ export default function CreateTaskModal({ onClose, refresh }) {
 
         <button
           onClick={handleCreate}
-          className="w-full bg-blue-600 text-white p-2 rounded mb-2"
+          disabled={loading}
+          className={`w-full text-white p-2 rounded mb-2 ${
+            loading ? "bg-blue-400" : "bg-blue-600"
+          }`}
         >
-          Create
+          {loading ? "Creating..." : "Create"}
         </button>
 
-        <button onClick={onClose} className="w-full bg-gray-300 p-2 rounded">
+        <button
+          onClick={onClose}
+          disabled={loading}
+          className="w-full bg-gray-300 p-2 rounded"
+        >
           Cancel
         </button>
       </div>
