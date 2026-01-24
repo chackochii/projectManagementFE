@@ -3,12 +3,15 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import axios from "axios";
+import { toast, Toaster } from "react-hot-toast";
 
 export default function LeaveManagementPage() {
   const [leaves, setLeaves] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [token, setToken] = useState(null);
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+
+  const baseUrl =
+    process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
 
   const statusColor = {
     Pending: "text-yellow-400 bg-yellow-400/10",
@@ -16,19 +19,24 @@ export default function LeaveManagementPage() {
     Rejected: "text-red-400 bg-red-400/10",
   };
 
-  /* ✅ LOAD TOKEN + PROTECT PAGE */
+  /* ===============================
+     AUTH GUARD (CLIENT ONLY)
+  =============================== */
   useEffect(() => {
-    const t = localStorage.getItem("token");
+    if (typeof window === "undefined") return;
 
+    const t = localStorage.getItem("token");
     if (!t) {
-      window.location.href = "/admin"; // redirect to login
+      window.location.href = "/admin";
       return;
     }
 
     setToken(t);
   }, []);
 
-  /* ✅ FETCH LEAVES ONLY AFTER TOKEN IS SET */
+  /* ===============================
+     FETCH LEAVES
+  =============================== */
   useEffect(() => {
     if (!token) return;
     fetchLeaves();
@@ -41,7 +49,7 @@ export default function LeaveManagementPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      const leavesData = res.data.leaves.map((leave) => ({
+      const formatted= res.data.leaves.map((leave) => ({
         id: leave.id,
         employee: leave.email,
         role: leave.role || "Developer",
@@ -52,16 +60,40 @@ export default function LeaveManagementPage() {
         email: leave.email,
       }));
 
-      setLeaves(leavesData);
+      setLeaves(formatted);
     } catch (err) {
-      console.error("Failed to fetch leaves:", err);
+      console.error(err);
+      toast.error("Failed to load leave requests");
     } finally {
       setLoading(false);
     }
   };
 
+  /* ===============================
+     APPROVE / REJECT
+  =============================== */
+  const updateLeaveStatus = async (id, status) => {
+    try {
+      await axios.post(
+        `${baseUrl}/leaves/status`,
+        { id, status },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      toast.success(`Leave ${status}`);
+      fetchLeaves();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to update leave status");
+    }
+  };
+
+  /* ===============================
+     RENDER
+  =============================== */
   return (
-    <div>
+    <div className="p-4 md:p-6">
+      <Toaster position="top-right" />
       <h1 className="text-3xl font-bold mb-6">Employee Leave Management</h1>
 
       <motion.div
@@ -71,14 +103,16 @@ export default function LeaveManagementPage() {
       >
         {loading ? (
           <p className="text-slate-400">Loading leaves...</p>
+        ) : leaves.length === 0 ? (
+          <p className="text-slate-400">No leave requests found.</p>
         ) : (
           <>
-            {/* DESKTOP TABLE */}
+            {/* ================= DESKTOP TABLE ================= */}
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="text-slate-400 border-b border-slate-800">
-                    <th className="p-3 text-left">UserName</th>
+                    <th className="p-3 text-left">User</th>
                     <th className="p-3 text-left">Role</th>
                     <th className="p-3 text-left">From</th>
                     <th className="p-3 text-left">To</th>
@@ -102,9 +136,7 @@ export default function LeaveManagementPage() {
 
                       <td className="p-3">
                         <span
-                          className={`px-3 py-1 rounded-full text-sm ${
-                            statusColor[leave.status]
-                          }`}
+                          className={`px-3 py-1 rounded-full text-sm ${statusColor[leave.status]}`}
                         >
                           {leave.status}
                         </span>
@@ -113,10 +145,20 @@ export default function LeaveManagementPage() {
                       <td className="p-3 flex gap-3">
                         {leave.status === "Pending" && (
                           <>
-                            <button className="text-green-400 hover:underline">
+                            <button
+                              onClick={() =>
+                                updateLeaveStatus(leave.id, "Approved")
+                              }
+                              className="text-green-400 hover:underline"
+                            >
                               Approve
                             </button>
-                            <button className="text-red-400 hover:underline">
+                            <button
+                              onClick={() =>
+                                updateLeaveStatus(leave.id, "Rejected")
+                              }
+                              className="text-red-400 hover:underline"
+                            >
                               Reject
                             </button>
                           </>
@@ -128,7 +170,7 @@ export default function LeaveManagementPage() {
               </table>
             </div>
 
-            {/* MOBILE CARD VIEW */}
+            {/* ================= MOBILE CARDS ================= */}
             <div className="md:hidden space-y-4">
               {leaves.map((leave) => (
                 <div
@@ -136,11 +178,11 @@ export default function LeaveManagementPage() {
                   className="bg-slate-800 p-4 rounded-xl border border-slate-700"
                 >
                   <div className="flex justify-between items-center">
-                    <h2 className="text-lg font-semibold">{leave.employee}</h2>
+                    <h2 className="text-lg font-semibold">
+                      {leave.employee}
+                    </h2>
                     <span
-                      className={`px-3 py-1 rounded-full text-sm ${
-                        statusColor[leave.status]
-                      }`}
+                      className={`px-3 py-1 rounded-full text-sm ${statusColor[leave.status]}`}
                     >
                       {leave.status}
                     </span>
@@ -149,25 +191,27 @@ export default function LeaveManagementPage() {
                   <p className="text-slate-400 text-sm">{leave.role}</p>
 
                   <div className="mt-3 text-sm space-y-1">
-                    <p>
-                      <span className="text-slate-500">From:</span>{" "}
-                      {leave.from}
-                    </p>
-                    <p>
-                      <span className="text-slate-500">To:</span> {leave.to}
-                    </p>
-                    <p>
-                      <span className="text-slate-500">Type:</span>{" "}
-                      {leave.type}
-                    </p>
+                    <p><span className="text-slate-500">From:</span> {leave.from}</p>
+                    <p><span className="text-slate-500">To:</span> {leave.to}</p>
+                    <p><span className="text-slate-500">Type:</span> {leave.type}</p>
                   </div>
 
                   {leave.status === "Pending" && (
                     <div className="flex gap-3 mt-4">
-                      <button className="flex-1 py-2 bg-green-900/40 text-green-400 rounded-lg hover:bg-green-900/60 transition">
+                      <button
+                        onClick={() =>
+                          updateLeaveStatus(leave.id, "Approved")
+                        }
+                        className="flex-1 py-2 bg-green-900/40 text-green-400 rounded-lg"
+                      >
                         Approve
                       </button>
-                      <button className="flex-1 py-2 bg-red-900/40 text-red-400 rounded-lg hover:bg-red-900/60 transition">
+                      <button
+                        onClick={() =>
+                          updateLeaveStatus(leave.id, "Rejected")
+                        }
+                        className="flex-1 py-2 bg-red-900/40 text-red-400 rounded-lg"
+                      >
                         Reject
                       </button>
                     </div>
