@@ -44,7 +44,7 @@ export default function Board() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
 
   // -------------------
   // Load token (client only)
