@@ -1,26 +1,32 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import axios from "axios";
 import { motion } from "framer-motion";
 import { FiMail, FiLock } from "react-icons/fi";
 import { toast, Toaster } from "react-hot-toast";
 
+const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+
 export default function AdminLoginPage() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
 
-  // ENV CHECK (SSR-safe)
-  const baseUrl =
-    typeof process !== "undefined"
-      ? process.env.NEXT_PUBLIC_API_URL
-      : undefined;
-
-  const handleInput = (e) =>
-    setForm({ ...form, [e.target.name]: e.target.value });
+  const handleInput = (e) => {
+    setForm((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value.trim(),
+    }));
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
+
+    if (!form.email || !form.password) {
+      toast.error("Email and password are required");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -30,35 +36,42 @@ export default function AdminLoginPage() {
           email: form.email,
           password: form.password,
         },
-        { withCredentials: true }
+        {
+          withCredentials: true, // HttpOnly cookie (if enabled)
+          timeout: 10000,
+        }
       );
 
       const data = res.data;
 
-      /** ---- SAFE localStorage access ---- **/
-      if (typeof window !== "undefined") {
+      // ✅ FIX: Persist token
+      if (data?.token) {
         localStorage.setItem("token", data.token);
+        localStorage.setItem("adminToken", data.token);
       }
 
-      toast.success("Login Successful!");
-
-      if (typeof window !== "undefined") {
-        window.location.href = "/admin/dashboard";
+      // (Optional but recommended)
+      if (data?.admin) {
+        localStorage.setItem("adminUser", JSON.stringify(data.admin));
       }
+
+      toast.success("Login successful");
+      window.location.replace("/admin/dashboard");
     } catch (err) {
-      console.log("ERR:", err?.response?.status);
+      const status = err?.response?.status;
 
-      if (err.response?.status == 401) {
-        toast.error(err.response?.data?.error || "Invalid credentials");
+      if (status === 401) {
+        toast.error("Invalid credentials");
+      } else if (status === 429) {
+        toast.error("Too many attempts. Try later.");
       } else {
-        toast.error(err.response?.data?.error || "Login Failed");
+        toast.error("Login failed");
       }
     } finally {
       setLoading(false);
     }
   };
 
-  // Prevent hydration issues if env missing
   if (!baseUrl) return null;
 
   return (
@@ -68,7 +81,7 @@ export default function AdminLoginPage() {
       <motion.div
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
+        transition={{ duration: 0.4 }}
         className="w-full max-w-md bg-slate-900/60 backdrop-blur-xl border border-slate-800 p-8 rounded-2xl shadow-xl"
       >
         <div className="flex flex-col items-center mb-8">
@@ -82,7 +95,6 @@ export default function AdminLoginPage() {
         </div>
 
         <form className="space-y-5" onSubmit={handleLogin}>
-          {/* Email */}
           <div>
             <label className="text-slate-300 text-sm">Email</label>
             <div className="flex items-center mt-2 bg-slate-800/60 border border-slate-700 rounded-xl px-4 py-3">
@@ -92,13 +104,11 @@ export default function AdminLoginPage() {
                 name="email"
                 value={form.email}
                 onChange={handleInput}
-                placeholder="admin@example.com"
                 className="bg-transparent w-full text-white outline-none"
               />
             </div>
           </div>
 
-          {/* Password */}
           <div>
             <label className="text-slate-300 text-sm">Password</label>
             <div className="flex items-center mt-2 bg-slate-800/60 border border-slate-700 rounded-xl px-4 py-3">
@@ -108,7 +118,6 @@ export default function AdminLoginPage() {
                 name="password"
                 value={form.password}
                 onChange={handleInput}
-                placeholder="••••••••"
                 className="bg-transparent w-full text-white outline-none"
               />
             </div>
@@ -119,23 +128,11 @@ export default function AdminLoginPage() {
             whileTap={{ scale: 0.96 }}
             type="submit"
             disabled={loading}
-            className="w-full mt-4 bg-violet-600 hover:bg-violet-500 text-white py-3 rounded-xl font-semibold transition disabled:opacity-50"
+            className="w-full mt-4 bg-violet-600 hover:bg-violet-500 text-white py-3 rounded-xl font-semibold disabled:opacity-50"
           >
             {loading ? "Logging in..." : "Login"}
           </motion.button>
         </form>
-
-        <div className="mt-6 text-center">
-          <p className="text-slate-500 text-sm">
-            Forgot password?{" "}
-            <a
-              href="#"
-              className="text-violet-400 hover:text-violet-300 transition"
-            >
-              Reset here
-            </a>
-          </p>
-        </div>
       </motion.div>
     </div>
   );
