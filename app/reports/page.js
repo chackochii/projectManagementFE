@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 
 import {
@@ -30,7 +30,7 @@ export default function ReportsPage() {
   const [username, setUsername] = useState("");
   const [range, setRange] = useState("month");
 
-  /* ---------- LOAD AUTH ---------- */
+  // ----------------- LOAD AUTH -----------------
   useEffect(() => {
     if (typeof window !== "undefined") {
       const storedToken = localStorage.getItem("employeeToken") || "";
@@ -42,65 +42,57 @@ export default function ReportsPage() {
     }
   }, []);
 
-  /* ---------- FETCH REPORT ---------- */
-  useEffect(() => {
+  // ----------------- FETCH REPORT -----------------
+  const fetchReport = useCallback(async () => {
     if (!token || !userId) return;
+    setLoading(true);
 
-    const fetchReport = async () => {
-      setLoading(true);
-      try {
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
-        const monthlyRes = await axios.get(
-          `${baseUrl}/tasks/monthly?range=${range}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+      const [monthlyRes, taskRes] = await Promise.all([
+        axios.get(`${baseUrl}/tasks/monthly?range=${range}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        axios.get(`${baseUrl}/tasks/user-tasks?userId=${userId}&range=${range}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
 
-        const report = monthlyRes.data;
+      const report = monthlyRes.data;
 
-        const employees = report.employees || [];
-        const userOnly = employees.filter(e => e.employee === username);
+      const employees = report.employees || [];
+      const userOnly = employees.filter((e) => e.employee === username);
 
-        setContributorData(
-          userOnly.map(e => ({
-            name: e.employee,
-            totalTasks: e.totalTasks,
-            hoursWorked: Math.round(e.hoursWorked * 3600),
-          }))
-        );
+      setContributorData(
+        userOnly.map((e) => ({
+          name: e.employee,
+          totalTasks: e.totalTasks,
+          hoursWorked: Math.round(e.hoursWorked * 3600),
+        }))
+      );
 
-        const summary = report.summary || {};
-        setIssueData([
-          { name: "To Do", value: summary.todo || 0 },
-          { name: "In Progress", value: summary.inProgress || 0 },
-          { name: "Done", value: summary.done || 0 },
-        ]);
+      const summary = report.summary || {};
+      setIssueData([
+        { name: "To Do", value: summary.todo || 0 },
+        { name: "In Progress", value: summary.inProgress || 0 },
+        { name: "Done", value: summary.done || 0 },
+      ]);
 
-        const taskRes = await axios.get(
-          `${baseUrl}/tasks/user-tasks?userId=${userId}&range=${range}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-
-        setTasks(taskRes.data.tasks || []);
-      } catch (err) {
-        console.error("Failed to fetch report:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchReport();
+      setTasks(taskRes.data.tasks || []);
+    } catch (err) {
+      console.error("Failed to fetch report:", err);
+    } finally {
+      setLoading(false);
+    }
   }, [token, userId, username, range]);
 
-  if (loading) {
-    return (
-      <div className="p-6 text-center text-xl text-slate-300">
-        Loading report...
-      </div>
-    );
-  }
+  // ----------------- FETCH ON INIT OR RANGE CHANGE -----------------
+  useEffect(() => {
+    fetchReport();
+  }, [fetchReport]);
 
-  /* ---------- HELPERS ---------- */
+  // ----------------- HELPERS -----------------
   const formatSecondsToHMS = (totalSeconds = 0) => {
     const h = Math.floor(totalSeconds / 3600);
     const m = Math.floor((totalSeconds % 3600) / 60);
@@ -110,16 +102,25 @@ export default function ReportsPage() {
       .padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
-  const formatDate = date =>
+  const formatDate = (date) =>
     new Date(date).toLocaleDateString(undefined, {
       year: "numeric",
       month: "short",
       day: "numeric",
     });
 
+  // ----------------- LOADING -----------------
+  if (loading) {
+    return (
+      <div className="p-6 text-center text-xl text-slate-300">
+        Loading report...
+      </div>
+    );
+  }
+
+  // ----------------- RENDER -----------------
   return (
     <div className="p-4 md:p-6">
-
       {/* HEADER */}
       <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
@@ -142,7 +143,6 @@ export default function ReportsPage() {
 
       {/* CHARTS */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
         {/* BAR CHART */}
         <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl">
           <h2 className="text-xl font-semibold mb-1">Contributor Progress</h2>
@@ -178,7 +178,7 @@ export default function ReportsPage() {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={issueData.filter(i => i.value > 0)}
+                  data={issueData.filter((i) => i.value > 0)}
                   cx="50%"
                   cy="50%"
                   outerRadius="70%"
@@ -188,7 +188,7 @@ export default function ReportsPage() {
                   }
                 >
                   {issueData
-                    .filter(i => i.value > 0)
+                    .filter((i) => i.value > 0)
                     .map((_, index) => (
                       <Cell key={index} fill={COLORS[index]} />
                     ))}
@@ -201,7 +201,7 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      {/* TASKS WORKED — SEPARATE MODULE */}
+      {/* TASKS WORKED */}
       <div className="mt-8 bg-slate-900 border border-slate-800 p-6 rounded-2xl">
         <h2 className="text-xl font-semibold mb-4">Tasks Worked</h2>
 
@@ -212,7 +212,7 @@ export default function ReportsPage() {
         )}
 
         <div className="space-y-3">
-          {tasks.map(task => (
+          {tasks.map((task) => (
             <div
               key={task.id}
               className="bg-slate-800 border border-slate-700 rounded-xl p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-2"
@@ -220,8 +220,7 @@ export default function ReportsPage() {
               <div>
                 <h4 className="font-medium">{task.title}</h4>
                 <p className="text-sm text-slate-400">
-                  {task.project || "No Project"} •{" "}
-                  {formatDate(task.completedAt)}
+                  {task.project || "No Project"} • {formatDate(task.completedAt)}
                 </p>
               </div>
 
@@ -237,7 +236,6 @@ export default function ReportsPage() {
           ))}
         </div>
       </div>
-
     </div>
   );
 }
