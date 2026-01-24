@@ -2,11 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FiUsers, FiCalendar, FiHome, FiMenu, FiX, FiFile, FiDisc, FiLogOut, FiUserCheck } from "react-icons/fi";
-
-export default function AdminSidebar() {
-  const [open, setOpen] = useState(false);
-
   const navItems = [
     { label: "Dashboard", href: "/admin/dashboard", icon: <FiHome /> },
     { label: "Employees", href: "/admin/employees", icon: <FiUsers /> },
@@ -15,6 +12,10 @@ export default function AdminSidebar() {
       { label: "Projects", href: "/admin/projects", icon: <FiFile /> },
         { label: "Clients", href: "/admin/clients", icon: <FiUserCheck /> },
   ];
+
+export default function AdminSidebar() {
+  const [open, setOpen] = useState(false);
+  const router = useRouter();
 
   return (
     <>
@@ -65,7 +66,7 @@ export default function AdminSidebar() {
     <button
       onClick={() => {
         localStorage.removeItem("token");
-        window.location.href = "/admin/adminLogin";
+        router.replace("/admin/adminLogin");
         setOpen(false);
       }}
       className="m-4 flex items-center gap-3 px-4 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition"
