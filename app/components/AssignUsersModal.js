@@ -1,108 +1,92 @@
-import { useState, useEffect } from "react";
-import axios from "axios";
-import { toast } from "react-hot-toast";
+"use client";
 
-export default function AssignUsersModal({ project, closeModal, refreshProjects }) {
-  const [users, setUsers] = useState([]);
-  const [selectedUsers, setSelectedUsers] = useState([]);
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { FiUsers, FiCalendar, FiHome, FiMenu, FiX, FiFile, FiDisc, FiLogOut, FiUserCheck } from "react-icons/fi";
+  const navItems = [
+    { label: "Dashboard", href: "/admin/dashboard", icon: <FiHome /> },
+    { label: "Employees", href: "/admin/employees", icon: <FiUsers /> },
+     { label: "Reports", href: "/admin/report", icon: <FiDisc /> },
+     { label: "Leave Management", href: "/admin/leaves", icon: <FiCalendar /> },
+      { label: "Projects", href: "/admin/projects", icon: <FiFile /> },
+        { label: "Clients", href: "/admin/clients", icon: <FiUserCheck /> },
+  ];
 
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL;
-
-  useEffect(() => {
-    fetchUsers();
-
-    // Pre-select already assigned users
-    setSelectedUsers(project.users?.map((u) => u.id) || []);
-  }, []);
-
-  const fetchUsers = async () => {
-    try {
-      const token = localStorage.getItem("employeeToken");
-      if (!token) {
-        window.location.href = "/admin";
-        return;
-      }
-
-      const res = await axios.get(`${baseUrl}/users`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      setUsers(res.data.data);
-    } catch (err) {
-      toast.error("Failed to load users");
-    }
-  };
-
-  const toggleUser = (userId) => {
-    setSelectedUsers((prev) =>
-      prev.includes(userId)
-        ? prev.filter((id) => id !== userId)
-        : [...prev, userId]
-    );
-  };
-
-  const handleSave = async () => {
-    try {
-      const token = localStorage.getItem("employeeToken");
-
-      await axios.post(
-        `${baseUrl}/projects/${project.id}/assign-users`,
-        { users: selectedUsers },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      toast.success("Users assigned successfully!");
-      refreshProjects();
-      closeModal();
-    } catch (err) {
-      toast.error("Failed to assign users");
-    }
-  };
+export default function AdminSidebar() {
+  const [open, setOpen] = useState(false);
+  const router = useRouter();
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50">
-      <div className="bg-slate-900 p-6 rounded-xl w-full max-w-lg border border-slate-700">
-        <h2 className="text-xl font-semibold mb-4">
-          Assign Users to {project.name}
-        </h2>
-
-        <div className="space-y-2 max-h-64 overflow-y-auto border border-slate-700 p-3 rounded">
-          {users.map((u) => (
-            <label
-              key={u.id}
-              className="flex items-center gap-3 p-2 hover:bg-slate-800 rounded cursor-pointer"
-            >
-              <input
-                type="checkbox"
-                checked={selectedUsers.includes(u.id)}
-                onChange={() => toggleUser(u.id)}
-              />
-              <span>{u.name}</span>
-            </label>
-          ))}
-        </div>
-
-        <div className="flex justify-end gap-3 mt-4">
-          <button
-            onClick={closeModal}
-            className="px-4 py-2 bg-slate-700 rounded-lg hover:bg-slate-600"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            className="px-4 py-2 bg-blue-600 rounded-lg hover:bg-blue-700"
-          >
-            Save
-          </button>
-        </div>
+    <>
+      {/* Mobile Top Bar */}
+      <div className="md:hidden fixed top-0 left-0 w-full bg-slate-900 p-3 flex justify-between items-center z-50 border-b border-slate-800">
+        <button onClick={() => setOpen(true)}>
+          <FiMenu size={24} className="text-white" />
+        </button>
+        <p className="font-bold">Admin Panel</p>
+        <div className="w-8 h-8 rounded-full bg-slate-700" />
       </div>
-    </div>
+
+      {/* Sidebar */}
+<aside
+  className={`
+    fixed top-0 left-0 h-full w-64 bg-slate-950 border-r border-slate-800 z-40 
+    transform transition-transform duration-300 
+    ${open ? "translate-x-0" : "-translate-x-full"} 
+    md:translate-x-0
+  `}
+>
+  <div className="p-6 flex justify-between items-center border-b border-slate-800">
+    <h2 className="text-xl font-bold">Admin Panel</h2>
+    <button className="md:hidden" onClick={() => setOpen(false)}>
+      <FiX size={22} />
+    </button>
+  </div>
+
+  {/* FIXED HEIGHT WRAPPER */}
+  <div className="flex flex-col justify-between h-[calc(100%-80px)]">
+
+    {/* Nav Items */}
+    <nav className="p-4 flex flex-col gap-2 overflow-y-auto">
+      {navItems.map((item) => (
+        <Link
+          key={item.href}
+          href={item.href}
+          onClick={() => setOpen(false)}
+          className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition"
+        >
+          <span className="text-slate-400">{item.icon}</span>
+          <span>{item.label}</span>
+        </Link>
+      ))}
+    </nav>
+
+    {/* Logout Button */}
+    <button
+      onClick={() => {
+        localStorage.removeItem("token");
+        router.replace("/admin/adminLogin");
+        setOpen(false);
+      }}
+      className="m-4 flex items-center gap-3 px-4 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition"
+    >
+      <FiLogOut />
+      <span>Logout</span>
+    </button>
+
+  </div>
+</aside>
+
+
+
+      {/* Dark overlay on mobile */}
+      {open && (
+        <div
+          className="fixed inset-0 bg-black/40 md:hidden z-30"
+          onClick={() => setOpen(false)}
+        />
+      )}
+    </>
   );
 }
