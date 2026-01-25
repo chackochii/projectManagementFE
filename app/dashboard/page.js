@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Layers, BookOpen, Bug, CheckCircle2, Calendar } from "lucide-react";
 import axios from "axios";
 import { useProject } from "../context/ProjectContext";
@@ -33,14 +33,15 @@ export default function DashboardPage() {
   // ======================
   useEffect(() => {
     if (typeof window !== "undefined") {
-      setToken(localStorage.getItem("employeeToken") || "");
+      const savedToken = localStorage.getItem("employeeToken") || "";
+      setToken(savedToken);
     }
   }, []);
 
   // ======================
   // Fetch dashboard data (SAFE)
   // ======================
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     if (!projectId || !token || fetchingRef.current) return;
 
     fetchingRef.current = true;
@@ -76,8 +77,8 @@ export default function DashboardPage() {
         projectDataRes.value.data?.data
       ) {
         const project = projectDataRes.value.data.data;
-        const tasks = project.tasks || [];
-
+        // We set project details, and let useMemo handle the counting 
+        // to keep the CPU usage low during the state update phase.
         setProjectDetails({
           name: project.name,
           description: project.description,
@@ -86,13 +87,7 @@ export default function DashboardPage() {
           clientEmail: project.clientEmail,
           clientPhone: project.clientPhone,
           createdAt: project.createdAt,
-        });
-
-        setUserStats({
-          todo: tasks.filter((t) => t.status === "todo").length,
-          inProgress: tasks.filter((t) => t.status === "in-progress").length,
-          review: tasks.filter((t) => t.status === "review").length,
-          done: tasks.filter((t) => t.status === "done").length,
+          tasks: project.tasks || [], // Keep tasks here for memoized counting
         });
       }
     } catch (err) {
@@ -100,48 +95,62 @@ export default function DashboardPage() {
     } finally {
       fetchingRef.current = false;
     }
-  };
+  }, [projectId, token, baseUrl]);
 
   // ======================
   // Effect (single trigger)
   // ======================
   useEffect(() => {
     fetchDashboardData();
-  }, [projectId, token]);
+  }, [fetchDashboardData]);
 
   // ======================
-  // UI Stats
+  // Optimized Stats Calculation
   // ======================
-  const stats = [
-    {
-      id: 1,
-      title: "To Do",
-      value: userStats.todo,
-      desc: "Tasks pending",
-      icon: <Layers className="w-5 h-5 text-slate-400" />,
-    },
-    {
-      id: 2,
-      title: "In Progress",
-      value: userStats.inProgress,
-      desc: "Currently working",
-      icon: <BookOpen className="w-5 h-5 text-slate-400" />,
-    },
-    {
-      id: 3,
-      title: "Review",
-      value: userStats.review,
-      desc: "Waiting for approval",
-      icon: <Bug className="w-5 h-5 text-slate-400" />,
-    },
-    {
-      id: 4,
-      title: "Completed",
-      value: userStats.done,
-      desc: "Finished issues",
-      icon: <CheckCircle2 className="w-5 h-5 text-slate-400" />,
-    },
-  ];
+  const stats = useMemo(() => {
+    // If we have tasks in projectDetails, they are more up-to-date for the overview
+    // otherwise we use the userStats state.
+    const counts = projectDetails?.tasks?.length > 0 
+      ? projectDetails.tasks.reduce((acc, task) => {
+          if (task.status === "todo") acc.todo++;
+          else if (task.status === "in-progress") acc.inProgress++;
+          else if (task.status === "review") acc.review++;
+          else if (task.status === "done") acc.done++;
+          return acc;
+        }, { todo: 0, inProgress: 0, review: 0, done: 0 })
+      : userStats;
+
+    return [
+      {
+        id: 1,
+        title: "To Do",
+        value: counts.todo,
+        desc: "Tasks pending",
+        icon: <Layers className="w-5 h-5 text-slate-400" />,
+      },
+      {
+        id: 2,
+        title: "In Progress",
+        value: counts.inProgress,
+        desc: "Currently working",
+        icon: <BookOpen className="w-5 h-5 text-slate-400" />,
+      },
+      {
+        id: 3,
+        title: "Review",
+        value: counts.review,
+        desc: "Waiting for approval",
+        icon: <Bug className="w-5 h-5 text-slate-400" />,
+      },
+      {
+        id: 4,
+        title: "Completed",
+        value: counts.done,
+        desc: "Finished issues",
+        icon: <CheckCircle2 className="w-5 h-5 text-slate-400" />,
+      },
+    ];
+  }, [projectDetails?.tasks, userStats]);
 
   // ======================
   // Render
@@ -182,19 +191,19 @@ export default function DashboardPage() {
             {projectDetails?.name || "Loading..."}
           </h3>
 
-          <span
-            className={`text-sm font-medium px-2 py-1 rounded ${
-              projectDetails?.status === "active"
-                ? "text-green-400 bg-green-900/30"
-                : "text-blue-400 bg-blue-900/30"
-            }`}
-          >
-            {projectDetails?.status === "active"
-              ? "ACTIVE"
-              : "COMPLETED"}
-          </span>
+          <div className="mt-2">
+            <span
+              className={`text-sm font-medium px-2 py-1 rounded ${
+                projectDetails?.status === "active"
+                  ? "text-green-400 bg-green-900/30"
+                  : "text-blue-400 bg-blue-900/30"
+              }`}
+            >
+              {projectDetails?.status === "active" ? "ACTIVE" : "COMPLETED"}
+            </span>
+          </div>
 
-          <p className="text-slate-400 text-sm mt-2">
+          <p className="text-slate-400 text-sm mt-4">
             {projectDetails?.description || "Fetching project summary..."}
           </p>
 
