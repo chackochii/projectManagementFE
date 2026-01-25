@@ -42,6 +42,7 @@ export default function AdminReportsPage() {
   const [projectList, setProjectList] = useState([]);
 
   const mountedRef = useRef(true);
+  const isFetchingRef = useRef(false); // Fix: Prevent simultaneous fetch requests
 
   /* ===================== MOUNT ===================== */
   useEffect(() => {
@@ -94,9 +95,10 @@ export default function AdminReportsPage() {
 
   /* ===================== REPORT ===================== */
   const fetchReport = useCallback(async () => {
-    if (!api) return;
+    if (!api || isFetchingRef.current) return;
 
     try {
+      isFetchingRef.current = true;
       setLoading(true);
 
       const res = await api.get("/tasks/monthly", {
@@ -120,19 +122,20 @@ export default function AdminReportsPage() {
     } catch (err) {
       console.error("Report fetch error:", err);
     } finally {
-      mountedRef.current && setLoading(false);
+      if (mountedRef.current) {
+        setLoading(false);
+        isFetchingRef.current = false;
+      }
     }
   }, [api, dateRange, selectedUser, selectedProject]);
 
   /* ===================== EFFECT FLOW ===================== */
   useEffect(() => {
-    if (!api) return;
-    fetchBaseData();
+    if (api) fetchBaseData();
   }, [api, fetchBaseData]);
 
   useEffect(() => {
-    if (!api) return;
-    fetchReport();
+    if (api) fetchReport();
   }, [api, fetchReport]);
 
   /* ===================== MEMOIZED DATA ===================== */
@@ -183,7 +186,7 @@ export default function AdminReportsPage() {
           <select
             value={dateRange}
             onChange={(e) => setDateRange(e.target.value)}
-            className="bg-slate-800 border border-slate-700 px-3 py-2 rounded"
+            className="bg-slate-800 border border-slate-700 px-3 py-2 rounded outline-none focus:ring-1 focus:ring-blue-500"
           >
             <option value="today">Today</option>
             <option value="week">This Week</option>
@@ -193,7 +196,7 @@ export default function AdminReportsPage() {
           <select
             value={selectedUser}
             onChange={(e) => setSelectedUser(e.target.value)}
-            className="bg-slate-800 border border-slate-700 px-3 py-2 rounded"
+            className="bg-slate-800 border border-slate-700 px-3 py-2 rounded outline-none focus:ring-1 focus:ring-blue-500"
           >
             <option value="all">All Employees</option>
             {userList.map((u) => (
@@ -206,7 +209,7 @@ export default function AdminReportsPage() {
           <select
             value={selectedProject}
             onChange={(e) => setSelectedProject(e.target.value)}
-            className="bg-slate-800 border border-slate-700 px-3 py-2 rounded"
+            className="bg-slate-800 border border-slate-700 px-3 py-2 rounded outline-none focus:ring-1 focus:ring-blue-500"
           >
             <option value="all">All Projects</option>
             {projectList.map((p) => (
@@ -224,19 +227,21 @@ export default function AdminReportsPage() {
         <div className="bg-slate-900 p-6 rounded-xl border border-slate-800">
           <h2 className="text-lg font-semibold mb-4">Employee Performance</h2>
           <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
+            {/* Fix: width="99%" prevents infinite resize loop causing 100% CPU usage */}
+            <ResponsiveContainer width="99%" height="100%">
               <BarChart data={contributors}>
-                <CartesianGrid stroke="#1e293b" />
+                <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" />
                 <XAxis dataKey="name" stroke="#94a3b8" />
                 <YAxis stroke="#94a3b8" />
                 <Tooltip
+                  contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b' }}
                   formatter={(v, n) =>
                     n === "hours" ? formatHoursToHHMMSS(v) : v
                   }
                 />
                 <Legend />
-                <Bar dataKey="tasks" fill="#818cf8" />
-                <Bar dataKey="hours" fill="#34d399" />
+                <Bar dataKey="tasks" fill="#818cf8" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="hours" fill="#34d399" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -246,14 +251,15 @@ export default function AdminReportsPage() {
         <div className="bg-slate-900 p-6 rounded-xl border border-slate-800">
           <h2 className="text-lg font-semibold mb-4">Task Distribution</h2>
           <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
+            {/* Fix: width="99%" prevents infinite resize loop causing 100% CPU usage */}
+            <ResponsiveContainer width="99%" height="100%">
               <PieChart>
-                <Pie data={pieData} dataKey="value" outerRadius="70%" label>
+                <Pie data={pieData.filter(d => d.value > 0)} dataKey="value" outerRadius="70%" label>
                   {pieData.map((_, i) => (
-                    <Cell key={i} fill={COLORS[i]} />
+                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b' }} />
                 <Legend />
               </PieChart>
             </ResponsiveContainer>
@@ -262,60 +268,60 @@ export default function AdminReportsPage() {
       </div>
 
       {/* TASK REPORT */}
-     <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl mt-8">
-          <h2 className="text-xl font-semibold mb-4">Employee Task Breakdown</h2>
+      <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl mt-8 shadow-lg">
+        <h2 className="text-xl font-semibold mb-4">Employee Task Breakdown</h2>
 
-          {contributors.map((emp) => (
-            <div key={emp.name} className="mb-8">
-              <h3 className="text-lg font-semibold text-blue-300 mb-2">
-                {emp.name} — {formatHoursToHHMMSS(emp.hours)} total
-              </h3>
+        {contributors.map((emp) => (
+          <div key={emp.name} className="mb-8">
+            <h3 className="text-lg font-semibold text-blue-300 mb-2">
+              {emp.name} — {formatHoursToHHMMSS(emp.hours)} total
+            </h3>
 
-              <table className="w-full text-sm text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-700 text-slate-400">
-                    <th className="p-2">Metric</th>
-                    <th className="p-2">Value</th>
-                  </tr>
-                </thead>
+            <table className="w-full text-sm text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-700 text-slate-400">
+                  <th className="p-2">Metric</th>
+                  <th className="p-2">Value</th>
+                </tr>
+              </thead>
 
-                <tbody>
-                  <tr className="border-b border-slate-800">
-                    <td className="p-2 text-white">To Do</td>
-                    <td className="p-2 text-slate-300">{emp.todo}</td>
-                  </tr>
+              <tbody>
+                <tr className="border-b border-slate-800">
+                  <td className="p-2 text-white">To Do</td>
+                  <td className="p-2 text-slate-300">{emp.todo}</td>
+                </tr>
 
-                  <tr className="border-b border-slate-800">
-                    <td className="p-2 text-white">In Progress</td>
-                    <td className="p-2 text-slate-300">{emp.inProgress}</td>
-                  </tr>
+                <tr className="border-b border-slate-800">
+                  <td className="p-2 text-white">In Progress</td>
+                  <td className="p-2 text-slate-300">{emp.inProgress}</td>
+                </tr>
 
-                  <tr className="border-b border-slate-800">
-                    <td className="p-2 text-white">Review</td>
-                    <td className="p-2 text-slate-300">{emp.review}</td>
-                  </tr>
+                <tr className="border-b border-slate-800">
+                  <td className="p-2 text-white">Review</td>
+                  <td className="p-2 text-slate-300">{emp.review}</td>
+                </tr>
 
-                  <tr className="border-b border-slate-800">
-                    <td className="p-2 text-white">Done</td>
-                    <td className="p-2 text-slate-300">{emp.done}</td>
-                  </tr>
+                <tr className="border-b border-slate-800">
+                  <td className="p-2 text-white">Done</td>
+                  <td className="p-2 text-slate-300">{emp.done}</td>
+                </tr>
 
-                  <tr className="border-b border-slate-800">
-                    <td className="p-2 text-white">Total Tasks</td>
-                    <td className="p-2 text-slate-300">{emp.totalTasks}</td>
-                  </tr>
+                <tr className="border-b border-slate-800">
+                  <td className="p-2 text-white">Total Tasks</td>
+                  <td className="p-2 text-slate-300">{emp.totalTasks}</td>
+                </tr>
 
-                  <tr>
-                    <td className="p-2 text-white">Hours Worked</td>
-                    <td className="p-2 text-green-400 font-semibold">
-                      {formatHoursToHHMMSS(emp.hours)}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          ))}
-        </div>
+                <tr>
+                  <td className="p-2 text-white">Hours Worked</td>
+                  <td className="p-2 text-green-400 font-semibold">
+                    {formatHoursToHHMMSS(emp.hours)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
