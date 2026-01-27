@@ -120,7 +120,7 @@ export default function ReportsPage() {
 
   // ----------------- RENDER -----------------
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-6 md:p-6">
       {/* HEADER */}
       <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
