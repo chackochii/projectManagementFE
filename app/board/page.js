@@ -211,7 +211,7 @@ export default function Board() {
   // Render
   // -------------------
   return (
-    <div>
+    <div className="p-6">
       <Toaster position="top-right" />
 
       <h1 className="text-3xl font-bold mb-2">Board</h1>
