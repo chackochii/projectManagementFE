@@ -18,13 +18,13 @@ export default function ClientLayout({ children }) {
 
   return (
     <ProjectProvider>
-      <div className="flex min-h-screen bg-slate-950">
+      <div className="min-h-screen bg-slate-950">
         {!noLayout && <Sidebar />}
 
-        <div className={`flex-1 flex flex-col min-h-screen ${!noLayout ? "md:ml-64" : ""}`}>
+        <div className="ml-0 md:ml-64 min-h-screen flex flex-col">
           {!noLayout && <Topbar />}
 
-          <main className={`w-full flex-1 ${noLayout ? "p-0 m-0" : "p-4 md:p-6 lg:p-8"}`}>
+          <main className="flex-1 p-4 md:p-6 lg:p-8">
             {children}
           </main>
         </div>
