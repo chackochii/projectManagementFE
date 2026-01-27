@@ -9,7 +9,6 @@ import { ProjectProvider } from "./context/ProjectContext";
 export default function ClientLayout({ children }) {
   const pathname = usePathname();
 
-  // Memoize layout checks so they don't re-calculate on every small flicker
   const noLayout = useMemo(() => {
     const hideLayout = pathname.startsWith("/admin");
     const isLoginPage = ["/login", "/register", "/forgot-password", "/"].includes(pathname);
@@ -18,13 +17,21 @@ export default function ClientLayout({ children }) {
 
   return (
     <ProjectProvider>
-      <div className="min-h-screen bg-slate-950">
+      <div className="min-h-screen bg-slate-950 overflow-x-hidden">
         {!noLayout && <Sidebar />}
 
-        <div className="ml-0 md:ml-64 min-h-screen flex flex-col">
+        <div
+          className={`min-h-screen flex flex-col ${
+            noLayout ? "ml-0" : "ml-0 md:ml-64"
+          }`}
+        >
           {!noLayout && <Topbar />}
 
-          <main className="flex-1">
+          <main
+            className={`flex-1 ${
+              noLayout ? "p-0" : "p-4 md:p-6 lg:p-8"
+            }`}
+          >
             {children}
           </main>
         </div>
