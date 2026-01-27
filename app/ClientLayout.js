@@ -24,7 +24,7 @@ export default function ClientLayout({ children }) {
         <div className="ml-0 md:ml-64 min-h-screen flex flex-col">
           {!noLayout && <Topbar />}
 
-          <main className="flex-1 p-4 md:p-6 lg:p-8">
+          <main className="flex-1">
             {children}
           </main>
         </div>
