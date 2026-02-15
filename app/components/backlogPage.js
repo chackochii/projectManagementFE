@@ -15,7 +15,7 @@ export default function BacklogPage() {
   const { currentProject } = useProject();
   const projectId = currentProject?.id;
 
-  const hasFetched = useRef(false);
+  // const hasFetched = useRef(false);
   const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
   const [isAssigneeModalOpen, setIsAssigneeModalOpen] = useState(false);
@@ -86,26 +86,37 @@ export default function BacklogPage() {
     }
   };
 
-  const fetchUsers = async () => {
-    if (!token) return;
-    try {
-      const data = await fetchWithTimeout(`${baseUrl}/users/`, {
+const fetchUsers = async () => {
+  if (!token || !projectId) return;
+
+  try {
+    const res = await fetchWithTimeout(
+      `${baseUrl}/project-members/${projectId}/members`,
+      {
         headers: { Authorization: `Bearer ${token}` },
-      });
+      }
+    );
 
-      if (!data) return;
+    if (!res?.success) return;
 
-      const filtered = data.filter((u) => u.role !== "admin");
-      setUsers(filtered);
-    } catch (err) {
-      console.error("Error fetching users:", err);
-      toast.error("Failed to load users");
-    }
-  };
+    // extract users correctly
+    const members = res.members?.data || [];
+
+    // optional: remove admin
+    const filtered = members.filter((u) => u.role !== "admin");
+
+    setUsers(filtered);
+
+  } catch (err) {
+    console.error("Error fetching project members:", err);
+    toast.error("Failed to load project members");
+  }
+};
+
+
 
   useEffect(() => {
-    if (token && projectId && !hasFetched.current) {
-      hasFetched.current = true;
+    if (token && projectId) {
       fetchBacklog();
       fetchUsers();
     }
