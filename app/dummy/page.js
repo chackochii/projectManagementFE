@@ -108,7 +108,8 @@ export default function ProjectUserTimeReport() {
 
 
   const formatHoursToHMS = (hours = 0) => {
-  const totalSeconds = Math.round(hours * 3600);
+  // const totalSeconds = Math.round(hours * 3600);
+  const totalSeconds = Math.round(hours);
 
   const h = Math.floor(totalSeconds / 3600);
   const m = Math.floor((totalSeconds % 3600) / 60);
