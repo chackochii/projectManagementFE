@@ -43,11 +43,23 @@ export const ProjectProvider = ({ children }) => {
       });
 
       if (userProjects.length > 0) {
-        setCurrentProject((prev) => {
-          // Keep the existing project if it's still in the list
-          const exists = userProjects.find(p => p.id === prev?.id);
-          return exists ? prev : userProjects[0];
-        });
+   setCurrentProject((prev) => {
+  // If no previous project, select first
+  if (!prev || !prev.id) {
+    return userProjects[0];
+  }
+
+  // Ensure userProjects is valid array
+  if (!Array.isArray(userProjects) || userProjects.length === 0) {
+    return null;
+  }
+
+  // Check if previous project still exists
+  const exists = userProjects.some(p => p && p.id === prev.id);
+
+  return exists ? prev : userProjects[0];
+});
+
       }
     } catch (err) {
       console.error("Error fetching projects:", err);
