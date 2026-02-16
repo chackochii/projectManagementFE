@@ -21,10 +21,15 @@ export default function DashboardPage() {
 
   const { currentProject } = useProject();
   const projectId = currentProject?.id;
-  const userData =
-  typeof window !== "undefined"
-    ? JSON.parse(localStorage.getItem("employeeUser") || "{}")
-    : {};
+const [userData, setUserData] = useState(null);
+
+useEffect(() => {
+  const storedUser = localStorage.getItem("employeeUser");
+  if (storedUser) {
+    setUserData(JSON.parse(storedUser));
+  }
+}, []);
+
 
   // Prevent refetch storms
   const fetchingRef = useRef(false);
@@ -163,7 +168,7 @@ export default function DashboardPage() {
     <div className="p-4 md:p-6 text-white">
       {/* Header */}
       <div className="mb-10">
-        <h1 className="text-3xl font-bold">  Welcome back {userData?.name || "User"}</h1>
+        <h1 className="text-3xl font-bold">  Welcome back {userData?.name || ""}</h1>
         <p className="text-slate-400 mt-1">
           Your project summary & active tasks live here.
         </p>
