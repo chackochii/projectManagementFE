@@ -77,6 +77,8 @@ export default function ActiveTicketPage() {
   const [token, setToken] = useState("");
   const [userId, setUserId] = useState(null);
   const [globalTick, setGlobalTick] = useState(0); // Used to sync the "Today Worked" clock
+  const [todayWorkedSeconds, setTodayWorkedSeconds] = useState(0);
+
 
   const { currentProject } = useProject();
   const projectId = currentProject?.id;
@@ -130,6 +132,30 @@ export default function ActiveTicketPage() {
     fetchTasks();
   }, [fetchTasks]);
 
+const fetchTodayWorked = useCallback(async () => {
+  if (!userId || !token) return;
+
+  try {
+    const res = await axios.get(
+      `${baseUrl}/task-time/user-one-day/${userId}`,
+      authConfig
+    );
+
+    setTodayWorkedSeconds(res.data.totalHours || 0);
+
+  } catch (err) {
+    console.error("Failed to fetch today worked:", err);
+  }
+}, [userId, token, baseUrl, authConfig]);
+
+
+useEffect(() => {
+  fetchTodayWorked();
+}, [fetchTodayWorked]);
+
+
+
+
   const endTaskIfRunning = async (task) => {
     if (!task.isRunning) return task;
     const res = await axios.post(`${baseUrl}/tasks/end/${task.id}`, {}, authConfig);
@@ -144,9 +170,19 @@ export default function ActiveTicketPage() {
   const toggleTask = async (task) => {
     try {
       if (task.isRunning) {
-        const updated = await endTaskIfRunning(task);
-        setTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)));
-      } else {
+
+  const updated = await endTaskIfRunning(task);
+
+  setTasks(prev =>
+    prev.map(t => t.id === task.id ? updated : t)
+  );
+
+  // refresh total from backend
+  fetchTodayWorked();
+}
+
+
+       else {
         await axios.post(`${baseUrl}/tasks/start/${task.id}`, {}, { ...authConfig, timeout: 10000 });
         const startTime = Date.now();
         setTasks((prev) => prev.map((t) =>
@@ -168,22 +204,33 @@ export default function ActiveTicketPage() {
     }
   };
 
-  const formatTime = useCallback((s = 0) => {
-    const h = Math.floor(s / 3600);
-    const m = Math.floor((s % 3600) / 60);
-    const sec = s % 60;
-    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
-  }, []);
+ const formatTime = useCallback((s = 0) => {
 
-  const totalTodaySeconds = useMemo(() => {
-    return tasks.reduce((acc, task) => {
-      let seconds = task.hoursTaken || 0;
-      if (task.isRunning && task.startTime) {
-        seconds += Math.floor((Date.now() - task.startTime) / 1000);
-      }
-      return acc + seconds;
-    }, 0);
-  }, [tasks, globalTick]); // Recalculate based on globalTick to move the clock
+  const hours = Math.floor(s / 3600);
+
+  const minutes = Math.floor((s % 3600) / 60);
+
+  const seconds = s % 60;
+
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+
+}, []);
+
+
+const totalTodaySeconds = useMemo(() => {
+
+  let total = todayWorkedSeconds;
+
+  const runningTask = tasks.find(t => t.isRunning);
+
+  if (runningTask && runningTask.startTime) {
+    total += Math.floor((Date.now() - runningTask.startTime) / 1000);
+  }
+
+  return total;
+
+}, [todayWorkedSeconds, tasks, globalTick]);
+
 
   const isAnyOtherRunning = useMemo(() => tasks.some(t => t.isRunning), [tasks]);
 
