@@ -1,61 +1,111 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import {
-  FiHome, FiGrid, FiList, FiBarChart2,
-  FiUser, FiMenu, FiChevronDown, FiBook, FiLogOut, FiFile, FiFlag
+  FiHome,
+  FiGrid,
+  FiList,
+  FiBarChart2,
+  FiUser,
+  FiMenu,
+  FiChevronDown,
+  FiBook,
+  FiLogOut,
+  FiFile,
+  FiFlag,
 } from "react-icons/fi";
 
 import { useProject } from "../context/ProjectContext";
 
+
 export default function Sidebar() {
+  const router = useRouter();
+  const pathname = usePathname();
+
   const { projects, currentProject, setCurrentProject, loading } = useProject();
+
   const [open, setOpen] = useState(false);
   const [showProjects, setShowProjects] = useState(false);
   const [user, setUser] = useState(null);
+  const [mounted, setMounted] = useState(false);
 
-  // ---- Load user from localStorage ----
+  // ---------------- Effects ----------------
   useEffect(() => {
+    setMounted(true);
     const saved = localStorage.getItem("employeeUser");
     if (saved) setUser(JSON.parse(saved));
   }, []);
 
-  const username = user?.name;
-  const role = user?.role;
+  useEffect(() => {
+    if (!open) setShowProjects(false);
+  }, [open]);
 
-  const nav = [
-    { href: "/dashboard", label: "Dashboard", icon: <FiHome /> },
-    { href: "/board", label: "Board", icon: <FiGrid /> },
-    { href: "/backlog", label: "Backlog", icon: <FiList /> },
-    { href: "/reports", label: "Reports", icon: <FiBarChart2 /> },
-    { href: "/leave", label: "Leave Management", icon: <FiUser /> },
-    { href: "/activeTickets", label: "Active Tickets", icon: <FiBook /> },
+  const username = user?.name ?? "";
+  const role = user?.role ?? "";
 
-    ...(role === "project_manager"
-      ? [{ href: "/projects", label: "Project Management", icon: <FiFile /> }]
-      : []),
+  // ---------------- Navigation (MUST be before render) ----------------
+  const nav = useMemo(
+    () => [
+      { href: "/dashboard", label: "Dashboard", icon: <FiHome /> },
+      { href: "/board", label: "Board", icon: <FiGrid /> },
+      { href: "/backlog", label: "Backlog", icon: <FiList /> },
+      { href: "/reports", label: "Reports", icon: <FiBarChart2 /> },
+      { href: "/leave", label: "Leave Management", icon: <FiUser /> },
+      { href: "/activeTickets", label: "Active Tickets", icon: <FiBook /> },
 
-    ...(role === "project_manager"
-      ? [{ href: "/dummy", label: "Micro Management", icon: <FiFlag /> }]
-      : []),
-  ];
+      ...(role === "project_manager"
+        ? [{ href: "/projects", label: "Project Management", icon: <FiFile /> }]
+        : []),
+
+      ...(role === "project_manager"
+        ? [{ href: "/dummy", label: "Micro Management", icon: <FiFlag /> }]
+        : []),
+    ],
+    [role]
+  );
 
   const handleNavClick = () => {
     if (window.innerWidth < 768) setOpen(false);
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem("employeeUser");
+    localStorage.removeItem("employeeToken");
+    router.replace("/login");
+  };
+
+  const initials = username
+    .split(" ")
+    .filter(Boolean)
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2);
+
+  // ✅ Safe: conditional rendering AFTER hooks
+  if (!mounted) {
+    return (
+      <div className="fixed inset-y-0 left-0 w-64 bg-slate-900 border-r border-slate-800" />
+    );
+  }
+
   return (
     <>
-      {/* mobile top bar */}
+      {/* Mobile Top Bar */}
       <div className="md:hidden flex items-center justify-between bg-slate-900 p-3 border-b border-slate-800">
         <button onClick={() => setOpen(true)} className="text-slate-200">
           <FiMenu size={20} />
         </button>
-        <div className="text-slate-200 font-semibold">
+
+        <div className="text-slate-200 font-semibold truncate">
           {loading ? "Loading..." : currentProject?.name || "No Projects"}
         </div>
-        <div className="w-8 h-8 rounded-full bg-slate-700" />
+
+       <div className="w-8 h-8 flex items-center justify-center rounded-full bg-indigo-600 text-white font-semibold uppercase text-sm">
+  {initials}
+</div>
+
       </div>
 
       {/* Sidebar */}
@@ -68,17 +118,17 @@ export default function Sidebar() {
             {/* Project Switcher */}
             <div className="mb-6">
               <button
-                onClick={() => setShowProjects(!showProjects)}
+                onClick={() => setShowProjects((v) => !v)}
                 className="flex items-center justify-between w-full bg-slate-800 px-3 py-2 rounded-lg text-white"
               >
-                <span>
+                <span className="truncate">
                   {loading
                     ? "Loading..."
                     : currentProject?.name || "Select Project"}
                 </span>
                 <FiChevronDown
                   className={`transition-transform ${
-                    showProjects ? "rotate-180" : "rotate-0"
+                    showProjects ? "rotate-180" : ""
                   }`}
                 />
               </button>
@@ -93,11 +143,12 @@ export default function Sidebar() {
                         setShowProjects(false);
                         if (window.innerWidth < 768) setOpen(false);
                       }}
-                      className={`w-full text-left px-3 py-2 hover:bg-slate-700 ${
-                        currentProject?.id === p.id
-                          ? "bg-slate-700 text-white"
-                          : "text-slate-300"
-                      }`}
+                      className={`w-full text-left px-3 py-2 text-sm transition
+                        ${
+                          currentProject?.id === p.id
+                            ? "bg-slate-700 text-white"
+                            : "text-slate-300 hover:bg-slate-700"
+                        }`}
                     >
                       {p.name}
                     </button>
@@ -108,17 +159,25 @@ export default function Sidebar() {
 
             {/* Navigation */}
             <nav className="flex flex-col gap-2">
-              {nav.map((n) => (
-                <Link
-                  key={n.href}
-                  href={n.href}
-                  onClick={handleNavClick}
-                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 text-slate-200 transition"
-                >
-                  <span className="text-slate-300">{n.icon}</span>
-                  <span className="truncate">{n.label}</span>
-                </Link>
-              ))}
+              {nav.map((n) => {
+                const active = pathname === n.href;
+                return (
+                  <Link
+                    key={n.href}
+                    href={n.href}
+                    onClick={handleNavClick}
+                    className={`flex items-center gap-3 p-3 rounded-lg transition
+                      ${
+                        active
+                          ? "bg-slate-800 text-white"
+                          : "text-slate-200 hover:bg-slate-800"
+                      }`}
+                  >
+                    <span className="text-slate-300">{n.icon}</span>
+                    <span className="truncate">{n.label}</span>
+                  </Link>
+                );
+              })}
             </nav>
           </div>
 
@@ -126,11 +185,7 @@ export default function Sidebar() {
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 flex items-center justify-center rounded-full bg-indigo-600 text-white font-semibold uppercase">
-                {username
-                  ?.split(" ")
-                  ?.map((word) => word[0])
-                  ?.join("")
-                  ?.slice(0, 2) || ""}
+                {initials}
               </div>
 
               <div className="text-sm">
@@ -140,11 +195,7 @@ export default function Sidebar() {
             </div>
 
             <button
-              onClick={() => {
-                localStorage.removeItem("employeeUser");
-                localStorage.removeItem("employeeToken");
-                window.location.href = "/login";
-              }}
+              onClick={handleLogout}
               className="flex items-center gap-2 mt-2 p-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition"
             >
               <FiLogOut size={18} />
