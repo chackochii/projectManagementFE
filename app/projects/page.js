@@ -41,7 +41,7 @@ export default function ProjectListPage() {
   ========================= */
   const getAuthHeaders = useCallback(() => {
     if (typeof window === "undefined") return {};
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("employeeToken");
     return {
       headers: { Authorization: `Bearer ${token}` },
     };
