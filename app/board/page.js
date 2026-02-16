@@ -72,71 +72,98 @@ export default function Board() {
   // -------------------
   // Fetch Tasks & Users
   // -------------------
-  useEffect(() => {
-    if (!projectId || !token) return;
+useEffect(() => {
+  if (!projectId || !token) return;
 
-    const fetchData = async () => {
-      setLoading(true);
+  const fetchData = async () => {
+    setLoading(true);
 
-      // Reset columns
-      setAllColumns([
-        { id: "todo", title: "To Do", tasks: [] },
-        { id: "in-progress", title: "In Progress", tasks: [] },
-        { id: "review", title: "Review", tasks: [] },
-        { id: "done", title: "Done", tasks: [] },
-      ]);
+    try {
+      // =========================
+      // 1. FETCH USERS FIRST
+      // =========================
+      const usersData = await fetchWithTimeout(
+        `${baseUrl}/project-members/${projectId}/members`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
 
-      // Fetch tasks by status
-      try {
-        const statuses = ["todo", "in-progress", "review", "done"];
-        const taskResults = await Promise.all(
-          statuses.map((status) =>
-            fetchWithTimeout(`${baseUrl}/tasks/status/${status}/${projectId}`, {
+      const members =
+        usersData?.members?.data?.filter(
+          (user) => user.role !== "admin"
+        ) || [];
+
+      setUsers(members);
+
+      // =========================
+      // 2. FETCH TASKS AFTER USERS
+      // =========================
+      const statuses = ["todo", "in-progress", "review", "done"];
+
+      const taskResults = await Promise.all(
+        statuses.map((status) =>
+          fetchWithTimeout(
+            `${baseUrl}/tasks/status/${status}/${projectId}`,
+            {
               headers: {
                 Authorization: `Bearer ${token}`,
                 "Content-Type": "application/json",
               },
-            })
+            }
           )
-        );
+        )
+      );
 
-        setAllColumns((prev) =>
-          prev.map((col, index) => ({
-            ...col,
-            tasks: Array.isArray(taskResults[index])
-              ? taskResults[index].map((task) => ({
+      // =========================
+      // 3. MAP TASKS WITH CORRECT USER NAMES
+      // =========================
+      setAllColumns(
+        statuses.map((status, index) => ({
+          id: status,
+          title:
+            status === "todo"
+              ? "To Do"
+              : status === "in-progress"
+              ? "In Progress"
+              : status === "review"
+              ? "Review"
+              : "Done",
+
+          tasks: Array.isArray(taskResults[index])
+            ? taskResults[index].map((task) => {
+                const assignee = members.find(
+                  (u) => u.id === task.assigneeId
+                );
+
+                return {
                   id: String(task.id),
                   title: task.title,
                   description: task.description,
                   priority: task.priority,
                   assigneeId: task.assigneeId,
-                }))
-              : [],
-          }))
-        );
-      } catch (err) {
-        console.error("Failed to fetch tasks:", err);
-        toast.error("Failed to load tasks");
-      }
 
-      // Fetch users
-      try {
-        const usersData = await fetchWithTimeout(`${baseUrl}/users`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+                  // ✅ THIS NOW WORKS CORRECTLY
+                  assigneeName:
+                    assignee?.name ||
+                    task.name ||   // fallback from API
+                    "Unassigned",
+                };
+              })
+            : [],
+        }))
+      );
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to load board data");
+    }
 
-        if (Array.isArray(usersData)) {
-          setUsers(usersData.filter((u) => u.role !== "admin"));
-        }
-      } catch (err) {
-        console.error("Failed to fetch users:", err);
-      }
+    setLoading(false);
+  };
 
-      setLoading(false);
-    };
+  fetchData();
+}, [projectId, token]);
 
-    fetchData();
-  }, [projectId, token]); // Re-fetch when project changes
 
   // -------------------
   // Task Actions
