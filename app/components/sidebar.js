@@ -73,6 +73,10 @@ export default function Sidebar() {
   const handleLogout = () => {
     localStorage.removeItem("employeeUser");
     localStorage.removeItem("employeeToken");
+    localStorage.removeItem("currentProjectId");
+    localStorage.removeItem("currentProject");
+    localStorage.removeItem("token");
+    localStorage.removeItem("adminToken");
     router.replace("/login");
   };
 
@@ -138,11 +142,15 @@ export default function Sidebar() {
                   {projects.map((p) => (
                     <button
                       key={p.id}
-                      onClick={() => {
-                        setCurrentProject(p);
-                        setShowProjects(false);
-                        if (window.innerWidth < 768) setOpen(false);
-                      }}
+                     onClick={() => {
+  setCurrentProject(p);
+
+  localStorage.setItem("currentProject", JSON.stringify(p));
+
+  setShowProjects(false);
+  if (window.innerWidth < 768) setOpen(false);
+}}
+
                       className={`w-full text-left px-3 py-2 text-sm transition
                         ${
                           currentProject?.id === p.id
