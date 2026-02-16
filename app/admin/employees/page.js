@@ -145,27 +145,37 @@ export default function UsersPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async () => {
-    if (!validate()) return toast.error("Please fill all required fields!");
+ const handleSubmit = async () => {
+  if (!validate()) return toast.error("Please fill all required fields!");
 
-    try {
-      if (isEditMode) {
-        await axios.put(`${baseUrl}/users/${selectedUser.id}`, form, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        toast.success("User updated successfully!");
-      } else {
-        await axios.post(`${baseUrl}/users/register`, form, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        toast.success("User created successfully!");
+  try {
+    if (isEditMode) {
+      const payload = { ...form };
+
+      if (!payload.password) {
+        delete payload.password;
       }
-      closeModal();
-      fetchUsers();
-    } catch (err) {
-      toast.error(err.response?.data?.error || err.message);
+
+      await axios.put(`${baseUrl}/users/${selectedUser.id}`, payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      toast.success("User updated successfully!");
+    } else {
+      await axios.post(`${baseUrl}/users/register`, form, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      toast.success("User created successfully!");
     }
-  };
+
+    closeModal();
+    fetchUsers();
+  } catch (err) {
+    toast.error(err.response?.data?.error || err.message);
+  }
+};
+
 
   const updateStatus = useCallback(async (id, status) => {
     try {
