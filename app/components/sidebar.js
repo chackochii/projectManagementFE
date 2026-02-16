@@ -137,32 +137,31 @@ export default function Sidebar() {
                 />
               </button>
 
-              {showProjects && !loading && projects.length > 0 && (
-                <div className="mt-2 bg-slate-800 rounded-lg overflow-hidden border border-slate-700">
-                  {projects.map((p) => (
-                    <button
-                      key={p.id}
-                     onClick={() => {
-  setCurrentProject(p);
+          {showProjects && !loading && projects.length > 0 && (
+  <div className="mt-2 bg-slate-800 rounded-lg overflow-hidden border border-slate-700">
+    {projects
+      .filter((p) => p && p.id) // ✅ CRITICAL FIX
+      .map((p) => (
+        <button
+          key={p.id}
+          onClick={() => {
+            setCurrentProject(p);
+            localStorage.setItem("currentProject", JSON.stringify(p));
+            setShowProjects(false);
+            if (window.innerWidth < 768) setOpen(false);
+          }}
+          className={`w-full text-left px-3 py-2 text-sm transition ${
+            currentProject?.id === p.id
+              ? "bg-slate-700 text-white"
+              : "text-slate-300 hover:bg-slate-700"
+          }`}
+        >
+          {p.name}
+        </button>
+      ))}
+  </div>
+)}
 
-  localStorage.setItem("currentProject", JSON.stringify(p));
-
-  setShowProjects(false);
-  if (window.innerWidth < 768) setOpen(false);
-}}
-
-                      className={`w-full text-left px-3 py-2 text-sm transition
-                        ${
-                          currentProject?.id === p.id
-                            ? "bg-slate-700 text-white"
-                            : "text-slate-300 hover:bg-slate-700"
-                        }`}
-                    >
-                      {p.name}
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
 
             {/* Navigation */}
