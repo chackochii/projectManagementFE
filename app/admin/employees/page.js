@@ -43,7 +43,7 @@ const UserRow = memo(({ user, onEdit, onDelete, onStatusChange }) => {
         {menuOpen && (
           <>
             <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-            <div className="absolute right-4 mt-2 w-44 bg-slate-800 border border-slate-700 rounded-xl shadow-lg z-20 text-left overflow-hidden">
+            <div className="absolute right-4 mt-2 w-44 bg-slate-800 border border-slate-700 rounded-xl shadow-lg z-110 text-left bottom-0 mb-0 origin-bottom-right ">
               <button
                 className="w-full text-left px-4 py-2 hover:bg-slate-700 flex items-center gap-2"
                 onClick={() => { onEdit(user); setMenuOpen(false); }}
@@ -255,7 +255,7 @@ export default function UsersPage() {
 
       {/* Desktop Table */}
       <div className="hidden md:block overflow-x-auto">
-        <table className="w-full border border-slate-800 rounded-xl overflow-hidden">
+        <table className="w-full border border-slate-800 rounded-xl ">
           <thead className="bg-slate-900">
             <tr>
               <th className="text-left p-4 border-b border-slate-800">Name</th>
