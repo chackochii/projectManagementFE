@@ -4,6 +4,9 @@ import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import axios from "axios";
 import { Toaster, toast } from "react-hot-toast";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+
 
 export default function EmployeeTasksPage() {
   const [loading, setLoading] = useState(false);
@@ -95,6 +98,73 @@ export default function EmployeeTasksPage() {
   useEffect(() => {
     fetchTasks();
   }, [fetchTasks]);
+
+  const exportToPDF = () => {
+  if (!tasks || tasks.length === 0) {
+    toast.error("No tasks to export");
+    return;
+  }
+
+  const doc = new jsPDF();
+
+  // Title
+  doc.setFontSize(18);
+  doc.text("Task Report", 14, 20);
+
+  doc.setFontSize(11);
+  doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 28);
+
+  // Table columns
+  const columns = [
+    "ID",
+    "Title",
+    "Project",
+    "Assignee",
+    "Reporter",
+    "Priority",
+    "Status",
+    "Start Time",
+    "End Time",
+    "Hours",
+  ];
+
+  // Table rows
+  const rows = tasks.map((task) => [
+    task.id,
+    task.title,
+    task.project?.name || "-",
+    task.assignee?.name || "Unassigned",
+    task.reporter?.name || "Unknown",
+    task.priority,
+    task.status,
+    task.startTime
+      ? new Date(task.startTime).toLocaleString()
+      : "-",
+    task.endTime
+      ? new Date(task.endTime).toLocaleString()
+      : "-",
+    task.hoursTaken || 0,
+  ]);
+
+  // Generate table
+  autoTable(doc, {
+    head: [columns],
+    body: rows,
+    startY: 35,
+    styles: {
+      fontSize: 8,
+    },
+    headStyles: {
+      fillColor: [124, 58, 237], // violet
+    },
+  });
+
+  // Save PDF
+  doc.save("tasks-report.pdf");
+
+  toast.success("PDF exported successfully");
+};
+
 
   // ---------------- STATUS / PRIORITY COLORS ----------------
   const getStatusColor = (status) => {
@@ -249,20 +319,20 @@ export default function EmployeeTasksPage() {
         </div>
 
         {/* Apply / Reset Buttons */}
-        <div className="md:col-span-5 flex justify-end gap-2 mt-2">
-          <button
-            onClick={fetchTasks}
-            className="bg-violet-600 hover:bg-violet-700 px-4 py-2 rounded-lg font-semibold"
-          >
-            Apply Filters
-          </button>
-          <button
-            onClick={resetFilters}
-            className="bg-gray-700 hover:bg-gray-800 px-4 py-2 rounded-lg font-semibold"
-          >
-            Reset Filters
-          </button>
-        </div>
+      <div className="md:col-span-5 flex justify-end gap-2 mt-2">
+  <button onClick={fetchTasks} className="bg-violet-600 px-4 py-2 rounded-lg">
+    Apply Filters
+  </button>
+
+  <button onClick={resetFilters} className="bg-gray-700 px-4 py-2 rounded-lg">
+    Reset Filters
+  </button>
+
+  <button onClick={exportToPDF} className="bg-green-600 px-4 py-2 rounded-lg">
+    Export PDF
+  </button>
+</div>
+
       </motion.div>
 
       {/* Task Table */}
