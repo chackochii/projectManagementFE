@@ -21,13 +21,39 @@ export default function AdminSidebar() {
   return (
     <>
       {/* Mobile Top Bar */}
-      <div className="md:hidden fixed top-0 left-0 w-full bg-slate-900 p-3 flex justify-between items-center z-50 border-b border-slate-800">
-        <button onClick={() => setOpen(true)}>
-          <FiMenu size={24} className="text-white" />
-        </button>
-        <p className="font-bold">Admin Panel</p>
-        <div className="w-8 h-8 rounded-full bg-slate-700" />
+    {/* Mobile Top Bar */}
+<div className="md:hidden fixed top-0 left-0 w-full bg-slate-950 px-4 py-3 flex justify-between items-center z-50 border-b border-slate-800">
+
+  {/* Left: Menu + TSUITE */}
+  <div className="flex items-center gap-3">
+    <button onClick={() => setOpen(true)}>
+      <FiMenu size={22} className="text-white" />
+    </button>
+
+    {/* TSUITE Brand */}
+    <div className="flex items-center gap-2">
+      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 via-purple-500 to-blue-500 flex items-center justify-center font-bold text-white text-sm shadow-md">
+        T
       </div>
+
+      <div className="flex flex-col leading-tight">
+        <span className="text-white font-semibold tracking-wide text-sm">
+          TSUITE
+        </span>
+        <span className="text-[10px] text-slate-400 -mt-0.5">
+          Admin
+        </span>
+      </div>
+    </div>
+  </div>
+
+  {/* Right: optional avatar placeholder */}
+  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold">
+    A
+  </div>
+
+</div>
+
 
       {/* Sidebar */}
 <aside
@@ -38,12 +64,23 @@ export default function AdminSidebar() {
     md:translate-x-0
   `}
 >
-  <div className="p-6 flex justify-between items-center border-b border-slate-800">
-    <h2 className="text-xl font-bold">Admin Panel</h2>
-    <button className="md:hidden" onClick={() => setOpen(false)}>
-      <FiX size={22} />
-    </button>
+<div className="hidden md:flex p-6 border-b border-slate-800 items-center gap-3">
+  <div className="flex items-center gap-3">
+    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-blue-500 flex items-center justify-center font-bold text-white text-lg shadow-lg">
+      T
+    </div>
+
+    <div>
+      <h2 className="text-white font-bold text-lg tracking-wide">
+        TSUITE
+      </h2>
+      <p className="text-xs text-slate-400 -mt-1">
+        Admin Panel
+      </p>
+    </div>
   </div>
+</div>
+
 
   {/* FIXED HEIGHT WRAPPER */}
   <div className="flex flex-col justify-between h-[calc(100%-80px)]">
