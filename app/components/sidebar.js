@@ -65,7 +65,7 @@ export default function Sidebar() {
         : []),
 
         ...(role === "project_manager"
-        ? [{ href: "/EmpolyeeTask", label: "Task Management", icon: <FiBox /> }]
+        ? [{ href: "/empolyeeTask", label: "Task Management", icon: <FiBox /> }]
         : []),
     ],
     [role]
