@@ -15,6 +15,7 @@ import {
   FiLogOut,
   FiFile,
   FiFlag,
+  FiBox
 } from "react-icons/fi";
 
 import { useProject } from "../context/ProjectContext";
@@ -51,7 +52,7 @@ export default function Sidebar() {
       { href: "/dashboard", label: "Dashboard", icon: <FiHome /> },
       { href: "/board", label: "Board", icon: <FiGrid /> },
       { href: "/backlog", label: "Backlog", icon: <FiList /> },
-      { href: "/reports", label: "Reports", icon: <FiBarChart2 /> },
+      { href: "/reports", label: "My Reports", icon: <FiBarChart2 /> },
       { href: "/leave", label: "Leave Management", icon: <FiUser /> },
       { href: "/activeTickets", label: "Active Tickets", icon: <FiBook /> },
 
@@ -61,6 +62,10 @@ export default function Sidebar() {
 
       ...(role === "project_manager"
         ? [{ href: "/dummy", label: "Micro Management", icon: <FiFlag /> }]
+        : []),
+
+        ...(role === "project_manager"
+        ? [{ href: "/EmpolyeeTask", label: "Task Management", icon: <FiBox /> }]
         : []),
     ],
     [role]
