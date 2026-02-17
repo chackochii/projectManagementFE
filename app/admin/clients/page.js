@@ -124,6 +124,20 @@ export default function ClientPage() {
     }
   };
 
+  // Convert HH:MM:SS → decimal hours
+const convertTimeToHours = (timeString) => {
+  if (!timeString) return 0;
+
+  const parts = timeString.split(":").map(Number);
+
+  const hours = parts[0] || 0;
+  const minutes = parts[1] || 0;
+  const seconds = parts[2] || 0;
+
+  return hours + minutes / 60 + seconds / 3600;
+};
+
+
   if (loading)
     return <div className="text-white p-4">Loading clients and billing...</div>;
 
@@ -222,18 +236,50 @@ export default function ClientPage() {
               {c.amount}
             </div>
 
-            <span className="text-green-400 font-semibold">
-              Total Hours: {c.billing?.totalHours || "00:00:00"}
-            </span>
+          {(() => {
+  const totalHoursDecimal = convertTimeToHours(
+    c.billing?.totalHours || "00:00:00"
+  );
+
+  const rate = Number(c.amount || 0);
+
+  const totalCost = totalHoursDecimal * rate;
+
+  return (
+    <div className="flex flex-col gap-1 mt-1">
+      <span className="text-green-400 font-semibold">
+        Total Hours: {c.billing?.totalHours || "00:00:00"}
+      </span>
+
+      <span className="text-yellow-400 font-semibold">
+        Hourly Rate: ₹{rate}/hr
+      </span>
+
+      <span className="text-indigo-400 font-bold text-lg">
+        Total Cost: ₹{totalCost.toFixed(2)}
+      </span>
+    </div>
+  );
+})()}
+
 
             {c.billing?.projects?.length > 0 && (
               <div className="mt-2">
                 <h4 className="text-slate-400 font-semibold mb-1">Projects:</h4>
                 <ul className="list-disc list-inside text-slate-300 text-sm">
                   {c.billing.projects.map((p) => (
-                    <li key={p.projectId}>
-                      {p.projectName}: {p.hours}
-                    </li>
+                  <li key={p.projectId} className="flex justify-between">
+  <span>
+    {p.projectName}: {p.hours}
+  </span>
+
+  <span className="text-indigo-400 font-semibold">
+    ₹{(
+      convertTimeToHours(p.hours) * Number(c.amount || 0)
+    ).toFixed(2)}
+  </span>
+</li>
+
                   ))}
                 </ul>
               </div>
