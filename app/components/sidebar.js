@@ -20,7 +20,6 @@ import {
 
 import { useProject } from "../context/ProjectContext";
 
-
 export default function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
@@ -46,7 +45,7 @@ export default function Sidebar() {
   const username = user?.name ?? "";
   const role = user?.role ?? "";
 
-  // ---------------- Navigation (MUST be before render) ----------------
+  // ---------------- Navigation ----------------
   const nav = useMemo(
     () => [
       { href: "/dashboard", label: "Dashboard", icon: <FiHome /> },
@@ -64,7 +63,7 @@ export default function Sidebar() {
         ? [{ href: "/dummy", label: "Micro Management", icon: <FiFlag /> }]
         : []),
 
-        ...(role === "project_manager"
+      ...(role === "project_manager"
         ? [{ href: "/empolyeeTask", label: "Task Management", icon: <FiBox /> }]
         : []),
     ],
@@ -92,7 +91,7 @@ export default function Sidebar() {
     .join("")
     .slice(0, 2);
 
-  // ✅ Safe: conditional rendering AFTER hooks
+  // Prevent hydration mismatch
   if (!mounted) {
     return (
       <div className="fixed inset-y-0 left-0 w-64 bg-slate-900 border-r border-slate-800" />
@@ -111,24 +110,41 @@ export default function Sidebar() {
           {loading ? "Loading..." : currentProject?.name || "No Projects"}
         </div>
 
-       <div className="w-8 h-8 flex items-center justify-center rounded-full bg-indigo-600 text-white font-semibold uppercase text-sm">
-  {initials}
-</div>
-
+        <div className="w-8 h-8 flex items-center justify-center rounded-full bg-indigo-600 text-white font-semibold uppercase text-sm">
+          {initials}
+        </div>
       </div>
 
       {/* Sidebar */}
       <aside
         className={`fixed z-40 inset-y-0 left-0 w-64 bg-slate-900 border-r border-slate-800 transform transition-transform duration-200
-          ${open ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}
+        ${open ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}
       >
-        <div className="p-6 h-full flex flex-col justify-between">
+        <div className="p-5 h-full flex flex-col justify-between">
+
+          {/* Top Section */}
           <div>
+
+            {/* TSUITE Compact Brand */}
+            <div className="mb-6 flex items-center gap-2">
+              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 via-purple-500 to-blue-500 flex items-center justify-center font-bold text-white text-sm shadow">
+                T
+              </div>
+              <div className="flex flex-col leading-tight">
+                <span className="text-white font-semibold text-sm tracking-wide">
+                  TSUITE
+                </span>
+                <span className="text-[10px] text-slate-400">
+                  Workspace
+                </span>
+              </div>
+            </div>
+
             {/* Project Switcher */}
             <div className="mb-6">
               <button
                 onClick={() => setShowProjects((v) => !v)}
-                className="flex items-center justify-between w-full bg-slate-800 px-3 py-2 rounded-lg text-white"
+                className="flex items-center justify-between w-full bg-slate-800 px-3 py-2 rounded-lg text-white text"
               >
                 <span className="truncate">
                   {loading
@@ -142,81 +158,95 @@ export default function Sidebar() {
                 />
               </button>
 
-          {showProjects && !loading && projects.length > 0 && (
-  <div className="mt-2 bg-slate-800 rounded-lg overflow-hidden border border-slate-700">
-    {projects
-      .filter((p) => p && p.id) // ✅ CRITICAL FIX
-      .map((p) => (
-        <button
-          key={p.id}
-          onClick={() => {
-            setCurrentProject(p);
-            localStorage.setItem("currentProject", JSON.stringify(p));
-            setShowProjects(false);
-            if (window.innerWidth < 768) setOpen(false);
-          }}
-          className={`w-full text-left px-3 py-2 text-sm transition ${
-            currentProject?.id === p.id
-              ? "bg-slate-700 text-white"
-              : "text-slate-300 hover:bg-slate-700"
-          }`}
-        >
-          {p.name}
-        </button>
-      ))}
-  </div>
-)}
-
+              {showProjects && !loading && projects.length > 0 && (
+                <div className="mt-2 bg-slate-800 rounded-lg overflow-hidden border border-slate-700">
+                  {projects
+                    .filter((p) => p && p.id)
+                    .map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => {
+                          setCurrentProject(p);
+                          localStorage.setItem(
+                            "currentProject",
+                            JSON.stringify(p)
+                          );
+                          setShowProjects(false);
+                          if (window.innerWidth < 768) setOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 text-sm transition ${
+                          currentProject?.id === p.id
+                            ? "bg-slate-700 text-white"
+                            : "text-slate-300 hover:bg-slate-700"
+                        }`}
+                      >
+                        {p.name}
+                      </button>
+                    ))}
+                </div>
+              )}
             </div>
 
             {/* Navigation */}
-            <nav className="flex flex-col gap-2">
+            <nav className="flex flex-col gap-1">
               {nav.map((n) => {
                 const active = pathname === n.href;
+
                 return (
                   <Link
                     key={n.href}
                     href={n.href}
                     onClick={handleNavClick}
-                    className={`flex items-center gap-3 p-3 rounded-lg transition
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition text-sm
                       ${
                         active
                           ? "bg-slate-800 text-white"
-                          : "text-slate-200 hover:bg-slate-800"
+                          : "text-slate-300 hover:bg-slate-800 hover:text-white"
                       }`}
                   >
-                    <span className="text-slate-300">{n.icon}</span>
+                    <span className="text-base">{n.icon}</span>
                     <span className="truncate">{n.label}</span>
                   </Link>
                 );
               })}
             </nav>
+
           </div>
 
-          {/* User Footer */}
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 flex items-center justify-center rounded-full bg-indigo-600 text-white font-semibold uppercase">
+          {/* Bottom Section */}
+          <div>
+
+            {/* User Info */}
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-9 h-9 flex items-center justify-center rounded-full bg-indigo-600 text-white font-semibold uppercase text-sm">
                 {initials}
               </div>
 
               <div className="text-sm">
-                <div className="text-slate-200">{username}</div>
-                <div className="text-slate-400 text-xs">{role}</div>
+                <div className="text-slate-200 truncate max-w-[140px]">
+                  {username}
+                </div>
+                <div className="text-slate-400 text-xs truncate max-w-[140px]">
+                  {role}
+                </div>
               </div>
             </div>
 
+            {/* Logout */}
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 mt-2 p-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition"
+              className="flex items-center gap-2 w-full px-3 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition text-sm"
             >
-              <FiLogOut size={18} />
-              <span>Logout</span>
+              <FiLogOut size={16} />
+              Logout
             </button>
+
           </div>
+
         </div>
       </aside>
 
+      {/* Overlay */}
       {open && (
         <div
           className="fixed inset-0 z-30 bg-black/40 md:hidden"
