@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FiUsers, FiCalendar, FiHome, FiMenu, FiX, FiFile, FiDisc, FiLogOut, FiUserCheck } from "react-icons/fi";
+import { FiUsers, FiCalendar, FiHome, FiMenu, FiX, FiFile, FiDisc, FiLogOut, FiUserCheck, FiBox } from "react-icons/fi";
   const navItems = [
     { label: "Dashboard", href: "/admin/dashboard", icon: <FiHome /> },
     { label: "Employees", href: "/admin/employees", icon: <FiUsers /> },
@@ -11,6 +11,7 @@ import { FiUsers, FiCalendar, FiHome, FiMenu, FiX, FiFile, FiDisc, FiLogOut, FiU
      { label: "Leave Management", href: "/admin/leaves", icon: <FiCalendar /> },
       { label: "Projects", href: "/admin/projects", icon: <FiFile /> },
         { label: "Clients", href: "/admin/clients", icon: <FiUserCheck /> },
+        { label: "Task Management", href: "/admin/EmpolyeeTask", icon: <FiBox /> },
   ];
 
 export default function AdminSidebar() {
