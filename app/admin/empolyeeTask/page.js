@@ -137,6 +137,16 @@ export default function EmployeeTasksPage() {
     });
   };
 
+  const formatSecondsToHours = (seconds) => {
+  if (!seconds) return "0h 0m 0s";
+
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+
+  return `${hrs}h ${mins}m ${secs}s`;
+};
+
   return (
     <div className="p-6 space-y-8">
       <Toaster position="top-right" />
@@ -306,7 +316,7 @@ export default function EmployeeTasksPage() {
                   </td>
                   <td className="p-3 text-slate-300">{task.startTime ? new Date(task.startTime).toLocaleString() : "-"}</td>
                   <td className="p-3 text-slate-300">{task.endTime ? new Date(task.endTime).toLocaleString() : "-"}</td>
-                  <td className="p-3 text-slate-300">{task.hoursTaken || 0}</td>
+                 <td className="p-3 text-slate-300">{formatSecondsToHours(task.hoursTaken)}</td>
                 </tr>
               ))}
 
