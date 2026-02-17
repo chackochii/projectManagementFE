@@ -11,7 +11,7 @@ import { FiUsers, FiCalendar, FiHome, FiMenu, FiX, FiFile, FiDisc, FiLogOut, FiU
      { label: "Leave Management", href: "/admin/leaves", icon: <FiCalendar /> },
       { label: "Projects", href: "/admin/projects", icon: <FiFile /> },
         { label: "Clients", href: "/admin/clients", icon: <FiUserCheck /> },
-        { label: "Task Management", href: "/admin/EmpolyeeTask", icon: <FiBox /> },
+        { label: "Task Management", href: "/admin/empolyeeTask", icon: <FiBox /> },
   ];
 
 export default function AdminSidebar() {
