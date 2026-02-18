@@ -311,8 +311,8 @@ function CreateProjectModal({ project, closeModal, refreshProjects }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <form onSubmit={submit} className="bg-slate-900 p-6 rounded-2xl w-full max-w-lg space-y-4">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+    <form onSubmit={submit} className="bg-slate-900 w-full max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-2xl space-y-4" >
         <h2 className="text-xl font-semibold">
           {isEdit ? "Edit Project" : "Create Project"}
         </h2>
@@ -356,7 +356,7 @@ function CreateProjectModal({ project, closeModal, refreshProjects }) {
           <option value="cancelled">Cancelled</option>
         </select>
 
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-col sm:flex-row sm:justify-end gap-2">
           <button type="button" onClick={closeModal} className="px-5 py-2 bg-slate-700 rounded-full">
             Cancel
           </button>
@@ -481,12 +481,13 @@ const availableUsers = allUsers.filter(
 
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-slate-900 p-6 rounded-2xl w-full max-w-lg space-y-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+        <div className="bg-slate-900 w-full max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-2xl space-y-4">
+
         <h2 className="text-xl font-semibold">Assign Users</h2>
 
         {/* ADD USER */}
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <select
             value={selectedUser}
             onChange={e => setSelectedUser(e.target.value)}
@@ -502,7 +503,7 @@ const availableUsers = allUsers.filter(
 
           <button
             onClick={addUser}
-            className="bg-blue-600 px-4 rounded-full"
+            className="bg-blue-600 px-4 py-2 sm:py-1 rounded-full"
           >
             Add
           </button>
@@ -537,7 +538,7 @@ const availableUsers = allUsers.filter(
         </div>
 
         {/* ACTIONS */}
-        <div className="flex justify-end">
+          <div className="flex flex-col sm:flex-row sm:justify-end gap-2">
           <button
             onClick={closeModal}
             className="px-6 py-2 bg-slate-700 rounded-full"
