@@ -13,10 +13,6 @@ export default function EmployeeLoginPage() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
 
-  /**
-   * ✅ DO NOT hardcode IPs in frontend
-   * Set NEXT_PUBLIC_API_BASE_URL in .env
-   */
   const API_BASE_URL =
     process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
@@ -35,7 +31,7 @@ export default function EmployeeLoginPage() {
 
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
+      const timeout = setTimeout(() => controller.abort(), 10000);
 
       const response = await fetch(`${API_BASE_URL}/users/login`, {
         method: "POST",
@@ -80,11 +76,11 @@ export default function EmployeeLoginPage() {
   }, [form, API_BASE_URL, refreshUser, router]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0b1120]">
+    <div className="min-h-screen flex items-center justify-center bg-[#0b1120] px-4 sm:px-6">
       <Toaster position="top-right" />
 
-      <div className="bg-[#0f172a] p-8 rounded-xl w-[400px] border border-[#243349] shadow-lg">
-        <h1 className="text-2xl font-bold text-white mb-6 text-center">
+      <div className="w-full max-w-md bg-[#0f172a] p-6 sm:p-8 rounded-xl border border-[#243349] shadow-lg">
+        <h1 className="text-xl sm:text-2xl font-bold text-white mb-6 text-center">
           Employee Login
         </h1>
 
@@ -92,14 +88,14 @@ export default function EmployeeLoginPage() {
         <div className="mb-4">
           <label className="text-gray-400 text-sm mb-1 block">Email</label>
           <div className="flex items-center bg-[#1e293b] rounded-lg border border-[#243349]">
-            <span className="px-3 text-gray-400">
+            <span className="px-3 text-gray-400 text-lg">
               <FiMail />
             </span>
             <input
               type="email"
               autoComplete="email"
               placeholder="your.email@example.com"
-              className="w-full bg-transparent text-white p-2 outline-none"
+              className="w-full bg-transparent text-white p-3 sm:p-2 outline-none text-sm sm:text-base"
               value={form.email}
               onChange={(e) =>
                 setForm((prev) => ({ ...prev, email: e.target.value }))
@@ -112,14 +108,14 @@ export default function EmployeeLoginPage() {
         <div className="mb-6">
           <label className="text-gray-400 text-sm mb-1 block">Password</label>
           <div className="flex items-center bg-[#1e293b] rounded-lg border border-[#243349]">
-            <span className="px-3 text-gray-400">
+            <span className="px-3 text-gray-400 text-lg">
               <FiLock />
             </span>
             <input
               type="password"
               autoComplete="current-password"
               placeholder="********"
-              className="w-full bg-transparent text-white p-2 outline-none"
+              className="w-full bg-transparent text-white p-3 sm:p-2 outline-none text-sm sm:text-base"
               value={form.password}
               onChange={(e) =>
                 setForm((prev) => ({ ...prev, password: e.target.value }))
@@ -132,7 +128,7 @@ export default function EmployeeLoginPage() {
         <button
           onClick={handleLogin}
           disabled={loading}
-          className={`w-full py-2 px-4 rounded-lg text-white font-semibold transition ${
+          className={`w-full py-3 sm:py-2 px-4 rounded-lg text-white font-semibold transition text-sm sm:text-base ${
             loading
               ? "bg-blue-400 cursor-not-allowed"
               : "bg-blue-600 hover:bg-blue-700"
@@ -141,7 +137,7 @@ export default function EmployeeLoginPage() {
           {loading ? "Logging in..." : "Login"}
         </button>
 
-        <p className="text-gray-500 text-sm mt-4 text-center">
+        <p className="text-gray-500 text-xs sm:text-sm mt-4 text-center">
           Forgot password?{" "}
           <a
             href="/employee/forgot-password"
