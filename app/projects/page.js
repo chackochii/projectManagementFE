@@ -41,7 +41,7 @@ export default function ProjectListPage() {
   ========================= */
   const getAuthHeaders = useCallback(() => {
     if (typeof window === "undefined") return {};
-    const token = localStorage.getItem("employeeToken");
+    const token = localStorage.getItem("employeeToken") ||  localStorage.getItem("token") ;
     return {
       headers: { Authorization: `Bearer ${token}` },
     };
@@ -277,7 +277,7 @@ function CreateProjectModal({ project, closeModal, refreshProjects }) {
 
   const headers = () => ({
     "Content-Type": "application/json",
-    Authorization: `Bearer ${localStorage.getItem("token")}`,
+    Authorization: `Bearer ${localStorage.getItem("employeeToken")}`,
   });
 
   useEffect(() => {
@@ -381,7 +381,7 @@ function AssignUserModal({ project, closeModal }) {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
   const authHeaders = () => ({
-    Authorization: `Bearer ${localStorage.getItem("token")}`,
+    Authorization: `Bearer ${localStorage.getItem("employeeToken")}`,
   });
 
   /* =========================
