@@ -3,9 +3,8 @@ import { FiBell, FiSearch } from "react-icons/fi";
 
 export default function AdminTopbar() {
   return (
-    <header className="fixed top-0 right-0 left-0 md:left-64 bg-slate-900 border-b border-slate-800 px-4 md:px-6 py-4.5 flex items-center justify-between z-30">
-      
-      {/* Title */}
+  <header className="hidden md:flex fixed top-0 right-0 left-64 bg-slate-900 border-b border-slate-800 px-6 py-4 items-center justify-between z-30">
+  {/* Title */}
       <h1 className="text-lg sm:text-xl md:text-2xl font-semibold whitespace-nowrap">
         Admin Dashboard
       </h1>
