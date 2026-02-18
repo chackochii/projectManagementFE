@@ -58,12 +58,15 @@ export default function AdminSidebar() {
       {/* Sidebar */}
 <aside
   className={`
-    fixed top-0 left-0 h-full w-64 bg-slate-950 border-r border-slate-800 z-40 
+    fixed top-14 md:top-0 left-0 
+    h-[calc(100%-56px)] md:h-full 
+    w-64 bg-slate-950 border-r border-slate-800 z-40 
     transform transition-transform duration-300 
     ${open ? "translate-x-0" : "-translate-x-full"} 
     md:translate-x-0
   `}
 >
+
 <div className="hidden md:flex p-6 border-b border-slate-800 items-center gap-3">
   <div className="flex items-center gap-3">
     <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-blue-500 flex items-center justify-center font-bold text-white text-lg shadow-lg">
