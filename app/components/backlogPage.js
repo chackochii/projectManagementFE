@@ -504,9 +504,8 @@ const fetchUsers = async () => {
       {/* CREATE ISSUE MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-[#0f172a] p-6 rounded-xl w-[500px] border border-[#243349] shadow-xl animate-fadeIn">
-
-            <div className="flex justify-between items-center mb-4">
+          <div className="bg-[#0f172a] w-full max-w-lg mx-4 sm:mx-0 p-4 sm:p-6 rounded-xl border border-[#243349] shadow-xl animate-fadeIn max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl text-white font-semibold">Create Issue</h2>
 
               <button
@@ -536,7 +535,7 @@ const fetchUsers = async () => {
             />
 
             {/* TYPE + PRIORITY */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-gray-300 text-sm">Type</label>
                 <select
@@ -607,7 +606,7 @@ const fetchUsers = async () => {
 
       {isAssigneeModalOpen && selectedTask && (
   <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-    <div className="bg-[#0f172a] p-6 rounded-xl w-[400px] border border-[#243349]">
+    <div className="bg-[#0f172a] w-full max-w-md mx-4 sm:mx-0 p-4 sm:p-6 rounded-xl border border-[#243349] max-h-[90vh] overflow-y-auto">
       
       <h2 className="text-white text-lg font-semibold mb-4">
         Manage Assignee
