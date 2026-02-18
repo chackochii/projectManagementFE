@@ -290,8 +290,8 @@ const convertTimeToHours = (timeString) => {
 
       {/* Edit Modal */}
       {showEditModal && editClientData && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-slate-900 p-6 rounded-xl w-full max-w-md">
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+  <div className="bg-slate-900 w-full max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-2xl space-y-4">
             <h2 className="text-xl font-semibold mb-4">Edit Client</h2>
 
             <div className="grid grid-cols-1 gap-3">
