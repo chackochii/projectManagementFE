@@ -4,6 +4,9 @@ import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import axios from "axios";
 import { Toaster, toast } from "react-hot-toast";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+
 
 export default function EmployeeTasksPage() {
   const [loading, setLoading] = useState(false);
@@ -27,11 +30,9 @@ export default function EmployeeTasksPage() {
 
   // ---------------- LOAD USER + TOKEN ----------------
   useEffect(() => {
-    const storedUser = localStorage.getItem("employeeUser");
-    const storedToken = localStorage.getItem("employeeToken");
+    const storedToken = localStorage.getItem("adminToken");
 
-    if (storedUser && storedToken) {
-      setUser(JSON.parse(storedUser));
+    if (storedToken) {
       setToken(storedToken);
     }
   }, []);
@@ -108,6 +109,199 @@ const fetchProjects = useCallback(async () => {
     fetchTasks();
   }, [fetchTasks]);
 
+const exportToPDF = () => {
+  if (!tasks || tasks.length === 0) {
+    toast.error("No tasks to export");
+    return;
+  }
+
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+
+  // ---------- HELPERS ----------
+  const formatSecondsToHMS = (seconds = 0) => {
+    const hrs = String(Math.floor(seconds / 3600)).padStart(2, "0");
+    const mins = String(Math.floor((seconds % 3600) / 60)).padStart(2, "0");
+    const secs = String(seconds % 60).padStart(2, "0");
+    return `${hrs}:${mins}:${secs}`;
+  };
+
+  const totalTasks = tasks.length;
+  const totalSeconds = tasks.reduce(
+    (sum, t) => sum + (t.hoursTaken || 0),
+    0
+  );
+  const totalWorkedTime = formatSecondsToHMS(totalSeconds);
+
+  const projectName =
+    tasks[0]?.project?.name ||
+    allProjects.find((p) => p.id == filters.projectId)?.name ||
+    "All Projects";
+
+  // =====================================================
+  // HEADER BAR
+  // =====================================================
+  doc.setFillColor(15, 23, 42);
+  doc.rect(0, 0, 595, 70, "F");
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(18);
+  doc.text("Tortillon Technology", 40, 35);
+
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "normal");
+  doc.text("View on Your Business", 40, 55);
+
+  // RESET TEXT COLOR
+  doc.setTextColor(30, 30, 30);
+
+  // =====================================================
+  // REPORT TITLE SECTION
+  // =====================================================
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  doc.text("PROJECT WORK REPORT", 40, 110);
+
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "normal");
+  doc.text(projectName, 40, 130);
+
+  doc.setFontSize(10);
+  doc.setTextColor(120);
+  doc.text(
+    `Generated on ${new Date().toLocaleString()}`,
+    40,
+    145
+  );
+
+  doc.setTextColor(30);
+
+  // =====================================================
+  // KPI CARDS
+  // =====================================================
+  const cardY = 165;
+
+  const drawCard = (x, title, value) => {
+    doc.setDrawColor(220);
+    doc.roundedRect(x, cardY, 240, 60, 6, 6);
+
+    doc.setFontSize(10);
+    doc.setTextColor(120);
+    doc.text(title, x + 15, cardY + 22);
+
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(20);
+    doc.text(value, x + 15, cardY + 45);
+  };
+
+  drawCard(40, "Total Tasks", String(totalTasks));
+  drawCard(315, "Total Hours Worked", totalWorkedTime);
+
+  // =====================================================
+  // TABLE
+  // =====================================================
+  const columns = [
+    "ID",
+    "Title",
+    "Project",
+    "Assignee",
+    "Priority",
+    "Status",
+    "Start",
+    "End",
+    "Worked",
+  ];
+
+  const rows = tasks.map((task) => [
+    task.id,
+    task.title,
+    task.project?.name || "-",
+    task.assignee?.name || "Unassigned",
+    task.priority,
+    task.status,
+    task.startTime
+      ? new Date(task.startTime).toLocaleString()
+      : "-",
+    task.endTime
+      ? new Date(task.endTime).toLocaleString()
+      : "-",
+    formatSecondsToHMS(task.hoursTaken || 0),
+  ]);
+
+  autoTable(doc, {
+    head: [columns],
+    body: rows,
+    startY: cardY + 90,
+
+    theme: "grid",
+
+    styles: {
+      font: "helvetica",
+      fontSize: 9,
+      cellPadding: 6,
+      lineColor: [230, 230, 230],
+      lineWidth: 0.5,
+    },
+
+    headStyles: {
+      fillColor: [30, 41, 59],
+      textColor: 255,
+      fontStyle: "bold",
+      halign: "center",
+    },
+
+    alternateRowStyles: {
+      fillColor: [248, 250, 252],
+    },
+
+    columnStyles: {
+      0: { halign: "center", cellWidth: 35 },
+      8: { halign: "center" },
+    },
+
+    margin: { left: 40, right: 40 },
+  });
+
+  // =====================================================
+  // FOOTER
+  // =====================================================
+  const pageCount = doc.internal.getNumberOfPages();
+
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+
+    doc.setDrawColor(220);
+    doc.line(
+      40,
+      doc.internal.pageSize.height - 40,
+      555,
+      doc.internal.pageSize.height - 40
+    );
+
+    doc.setFontSize(9);
+    doc.setTextColor(130);
+
+    doc.text(
+      "Confidential • Tortillon Technology",
+      40,
+      doc.internal.pageSize.height - 25
+    );
+
+    doc.text(
+      `Page ${i} of ${pageCount}`,
+      500,
+      doc.internal.pageSize.height - 25
+    );
+  }
+
+  doc.save(`tasks-report-${projectName}.pdf`);
+  toast.success("PDF exported successfully");
+};
+
+
+
+
   // ---------------- STATUS / PRIORITY COLORS ----------------
   const getStatusColor = (status) => {
     switch (status) {
@@ -149,8 +343,7 @@ const fetchProjects = useCallback(async () => {
     });
   };
 
-  // Convert seconds to hh:mm format
-const formatSecondsToHours = (seconds) => {
+  const formatSecondsToHours = (seconds) => {
   if (!seconds) return "0h 0m 0s";
 
   const hrs = Math.floor(seconds / 3600);
@@ -159,8 +352,6 @@ const formatSecondsToHours = (seconds) => {
 
   return `${hrs}h ${mins}m ${secs}s`;
 };
-
-
 
   return (
     <div className="p-6 space-y-8">
@@ -264,20 +455,20 @@ const formatSecondsToHours = (seconds) => {
         </div>
 
         {/* Apply / Reset Buttons */}
-        <div className="md:col-span-5 flex justify-end gap-2 mt-2">
-          <button
-            onClick={fetchTasks}
-            className="bg-violet-600 hover:bg-violet-700 px-4 py-2 rounded-lg font-semibold"
-          >
-            Apply Filters
-          </button>
-          <button
-            onClick={resetFilters}
-            className="bg-gray-700 hover:bg-gray-800 px-4 py-2 rounded-lg font-semibold"
-          >
-            Reset Filters
-          </button>
-        </div>
+      <div className="md:col-span-5 flex justify-end gap-2 mt-2">
+  <button onClick={fetchTasks} className="bg-violet-600 px-4 py-2 rounded-lg">
+    Apply Filters
+  </button>
+
+  <button onClick={resetFilters} className="bg-gray-700 px-4 py-2 rounded-lg">
+    Reset Filters
+  </button>
+
+  <button onClick={exportToPDF} className="bg-green-600 px-4 py-2 rounded-lg">
+    Export PDF
+  </button>
+</div>
+
       </motion.div>
 
       {/* Task Table */}
@@ -331,7 +522,7 @@ const formatSecondsToHours = (seconds) => {
                   </td>
                   <td className="p-3 text-slate-300">{task.startTime ? new Date(task.startTime).toLocaleString() : "-"}</td>
                   <td className="p-3 text-slate-300">{task.endTime ? new Date(task.endTime).toLocaleString() : "-"}</td>
-                  <td className="p-3 text-slate-300">{formatSecondsToHours(task.hoursTaken)}</td>
+                 <td className="p-3 text-slate-300">{formatSecondsToHours(task.hoursTaken)}</td>
                 </tr>
               ))}
 
