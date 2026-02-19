@@ -29,13 +29,15 @@ export default function EmployeeTasksPage() {
     process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api";
 
   // ---------------- LOAD USER + TOKEN ----------------
-  useEffect(() => {
-    const storedToken = localStorage.getItem("adminToken");
+useEffect(() => {
+  const storedToken = localStorage.getItem("employeeToken");
+  const storedUser = localStorage.getItem("employeeUser");
 
-    if (storedToken) {
-      setToken(storedToken);
-    }
-  }, []);
+  if (storedUser) setUser(JSON.parse(storedUser));
+  if (storedToken) setToken(storedToken);
+}, []);
+
+
 
   // ---------------- FETCH USERS ----------------
   const fetchUsers = useCallback(async () => {
@@ -53,7 +55,7 @@ export default function EmployeeTasksPage() {
 
   // ---------------- FETCH PROJECTS ----------------
 const fetchProjects = useCallback(async () => {
-  if (!token) return;
+  if (!token || !user?.id) return;
 
   try {
     const res = await axios.get(
@@ -72,13 +74,23 @@ const fetchProjects = useCallback(async () => {
     console.error(err);
     toast.error("Failed to fetch projects");
   }
-}, [token, baseUrl, user]);
+}, [token, baseUrl, user?.id]);
 
 
-  useEffect(() => {
-    fetchUsers();
-    fetchProjects();
-  }, [fetchUsers, fetchProjects]);
+useEffect(() => {
+  console.log("TOKEN:", token);
+  console.log("USER:", user);
+}, [token, user]);
+
+
+
+useEffect(() => {
+  if (!token || !user?.id) return;
+
+  fetchUsers();
+  fetchProjects();
+}, [token, user?.id]);
+
 
   // ---------------- FETCH TASKS ----------------
   const fetchTasks = useCallback(async () => {
