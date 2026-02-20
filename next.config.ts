@@ -1,15 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Prevent weak ETags (helps with chunk caching issues)
+  // ✅ REQUIRED for PM2 standalone
+  output: "standalone",
+
+  reactStrictMode: true,
+  compress: true,
   generateEtags: false,
 
-  // Enable strict production optimizations
-  reactStrictMode: true,
-
-  // Production compression
-  compress: true,
-
-  // Fix chunk caching + 404 chunk errors
   async headers() {
     return [
       {
@@ -24,7 +21,6 @@ const nextConfig = {
     ];
   },
 
-  // Prevent stale chunks after deployment
   experimental: {
     optimizePackageImports: [
       "framer-motion",
