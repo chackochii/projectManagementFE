@@ -29,43 +29,51 @@ export default function EmployeeTasksPage() {
     process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api";
 
   // ---------------- LOAD USER + TOKEN ----------------
-  useEffect(() => {
-    const storedToken = localStorage.getItem("adminToken");
+useEffect(() => {
+  const storedToken = localStorage.getItem("adminToken");
+  if (storedToken) setToken(storedToken);
+}, []);
 
-    if (storedToken) {
-      setToken(storedToken);
-    }
-  }, []);
 
   // ---------------- FETCH USERS ----------------
-  const fetchUsers = useCallback(async () => {
-    if (!token) return;
-    try {
-      const res = await axios.get(`${baseUrl}/users`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setAllUsers(res.data || []); 
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to fetch users");
-    }
-  }, [token, baseUrl]);
+const fetchUsers = useCallback(async () => {
+  if (!token) return;
+
+  try {
+    const res = await axios.get(`${baseUrl}/users`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    console.log("USERS:", res.data);
+    setAllUsers(res.data || []);
+  } catch (err) {
+    console.log("USERS ERROR:", err.response?.data);
+    toast.error("Failed to fetch users");
+  }
+}, [token, baseUrl]);
+
 
   // ---------------- FETCH PROJECTS ----------------
-  const fetchProjects = useCallback(async () => {
-    if (!token) return;
-    try {
-      const res = await axios.get(`${baseUrl}/projects`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setAllProjects(res.data.data || []); 
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to fetch projects");
-    }
-  }, [token, baseUrl]);
+const fetchProjects = useCallback(async () => {
+  if (!token) return;
+
+  try {
+    const res = await axios.get(`${baseUrl}/projects`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    console.log("PROJECTS:", res.data);
+
+    setAllProjects(res.data.data || []);
+  } catch (err) {
+    console.log("PROJECT ERROR:", err.response?.data);
+    toast.error("Failed to fetch projects");
+  }
+}, [token, baseUrl]);
+
 
   useEffect(() => {
+    if (!token) return;
     fetchUsers();
     fetchProjects();
   }, [fetchUsers, fetchProjects]);
@@ -99,6 +107,198 @@ export default function EmployeeTasksPage() {
     fetchTasks();
   }, [fetchTasks]);
 
+// const exportToPDF = () => {
+//   if (!tasks || tasks.length === 0) {
+//     toast.error("No tasks to export");
+//     return;
+//   }
+
+//   const doc = new jsPDF({ unit: "pt", format: "a4" });
+
+//   // ---------- HELPERS ----------
+//   const formatSecondsToHMS = (seconds = 0) => {
+//     const hrs = String(Math.floor(seconds / 3600)).padStart(2, "0");
+//     const mins = String(Math.floor((seconds % 3600) / 60)).padStart(2, "0");
+//     const secs = String(seconds % 60).padStart(2, "0");
+//     return `${hrs}:${mins}:${secs}`;
+//   };
+
+//   const totalTasks = tasks.length;
+//   const totalSeconds = tasks.reduce(
+//     (sum, t) => sum + (t.hoursTaken || 0),
+//     0
+//   );
+//   const totalWorkedTime = formatSecondsToHMS(totalSeconds);
+
+//   const projectName =
+//     tasks[0]?.project?.name ||
+//     allProjects.find((p) => p.id == filters.projectId)?.name ||
+//     "All Projects";
+
+//   // =====================================================
+//   // HEADER BAR
+//   // =====================================================
+//   doc.setFillColor(15, 23, 42);
+//   doc.rect(0, 0, 595, 70, "F");
+
+//   doc.setTextColor(255, 255, 255);
+//   doc.setFont("helvetica", "bold");
+//   doc.setFontSize(18);
+//   doc.text("Tortillon Technology", 40, 35);
+
+//   doc.setFontSize(11);
+//   doc.setFont("helvetica", "normal");
+//   doc.text("View on Your Business", 40, 55);
+
+//   // RESET TEXT COLOR
+//   doc.setTextColor(30, 30, 30);
+
+//   // =====================================================
+//   // REPORT TITLE SECTION
+//   // =====================================================
+//   doc.setFont("helvetica", "bold");
+//   doc.setFontSize(16);
+//   doc.text("PROJECT WORK REPORT", 40, 110);
+
+//   doc.setFontSize(14);
+//   doc.setFont("helvetica", "normal");
+//   doc.text(projectName, 40, 130);
+
+//   doc.setFontSize(10);
+//   doc.setTextColor(120);
+//   doc.text(
+//     `Generated on ${new Date().toLocaleString()}`,
+//     40,
+//     145
+//   );
+
+//   doc.setTextColor(30);
+
+//   // =====================================================
+//   // KPI CARDS
+//   // =====================================================
+//   const cardY = 165;
+
+//   const drawCard = (x, title, value) => {
+//     doc.setDrawColor(220);
+//     doc.roundedRect(x, cardY, 240, 60, 6, 6);
+
+//     doc.setFontSize(10);
+//     doc.setTextColor(120);
+//     doc.text(title, x + 15, cardY + 22);
+
+//     doc.setFontSize(16);
+//     doc.setFont("helvetica", "bold");
+//     doc.setTextColor(20);
+//     doc.text(value, x + 15, cardY + 45);
+//   };
+
+//   drawCard(40, "Total Tasks", String(totalTasks));
+//   drawCard(315, "Total Hours Worked", totalWorkedTime);
+
+//   // =====================================================
+//   // TABLE
+//   // =====================================================
+//   const columns = [
+//     "ID",
+//     "Title",
+//     "Project",
+//     "Assignee",
+//     "Priority",
+//     "Status",
+//     "Start",
+//     "End",
+//     "Worked",
+//   ];
+
+//   const rows = tasks.map((task) => [
+//     task.id,
+//     task.title,
+//     task.project?.name || "-",
+//     task.assignee?.name || "Unassigned",
+//     task.priority,
+//     task.status,
+//     task.startTime
+//       ? new Date(task.startTime).toLocaleString()
+//       : "-",
+//     task.endTime
+//       ? new Date(task.endTime).toLocaleString()
+//       : "-",
+//     formatSecondsToHMS(task.hoursTaken || 0),
+//   ]);
+
+//   autoTable(doc, {
+//     head: [columns],
+//     body: rows,
+//     startY: cardY + 90,
+
+//     theme: "grid",
+
+//     styles: {
+//       font: "helvetica",
+//       fontSize: 9,
+//       cellPadding: 6,
+//       lineColor: [230, 230, 230],
+//       lineWidth: 0.5,
+//     },
+
+//     headStyles: {
+//       fillColor: [30, 41, 59],
+//       textColor: 255,
+//       fontStyle: "bold",
+//       halign: "center",
+//     },
+
+//     alternateRowStyles: {
+//       fillColor: [248, 250, 252],
+//     },
+
+//     columnStyles: {
+//       0: { halign: "center", cellWidth: 35 },
+//       8: { halign: "center" },
+//     },
+
+//     margin: { left: 40, right: 40 },
+//   });
+
+//   // =====================================================
+//   // FOOTER
+//   // =====================================================
+//   const pageCount = doc.internal.getNumberOfPages();
+
+//   for (let i = 1; i <= pageCount; i++) {
+//     doc.setPage(i);
+
+//     doc.setDrawColor(220);
+//     doc.line(
+//       40,
+//       doc.internal.pageSize.height - 40,
+//       555,
+//       doc.internal.pageSize.height - 40
+//     );
+
+//     doc.setFontSize(9);
+//     doc.setTextColor(130);
+
+//     doc.text(
+//       "Confidential • Tortillon Technology",
+//       40,
+//       doc.internal.pageSize.height - 25
+//     );
+
+//     doc.text(
+//       `Page ${i} of ${pageCount}`,
+//       500,
+//       doc.internal.pageSize.height - 25
+//     );
+//   }
+
+//   doc.save(`tasks-report-${projectName}.pdf`);
+//   toast.success("PDF exported successfully");
+// };
+
+
+
 const exportToPDF = () => {
   if (!tasks || tasks.length === 0) {
     toast.error("No tasks to export");
@@ -130,7 +330,7 @@ const exportToPDF = () => {
   // =====================================================
   // HEADER BAR
   // =====================================================
-  doc.setFillColor(15, 23, 42);
+  doc.setFillColor(0, 0, 0);
   doc.rect(0, 0, 595, 70, "F");
 
   doc.setTextColor(255, 255, 255);
@@ -140,7 +340,7 @@ const exportToPDF = () => {
 
   doc.setFontSize(11);
   doc.setFont("helvetica", "normal");
-  doc.text("View on Your Business", 40, 55);
+  doc.text("We on Your Business", 40, 55);
 
   // RESET TEXT COLOR
   doc.setTextColor(30, 30, 30);
@@ -156,13 +356,19 @@ const exportToPDF = () => {
   doc.setFont("helvetica", "normal");
   doc.text(projectName, 40, 130);
 
-  doc.setFontSize(10);
-  doc.setTextColor(120);
-  doc.text(
-    `Generated on ${new Date().toLocaleString()}`,
-    40,
-    145
-  );
+  const generatedDate = new Date().toLocaleString("en-US", {
+  year: "numeric",
+  month: "short",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: true, // ✅ AM/PM
+});
+
+doc.setFontSize(10);
+doc.setTextColor(120);
+doc.text(`Generated on ${generatedDate}`, 40, 145);
 
   doc.setTextColor(30);
 
@@ -235,7 +441,7 @@ const exportToPDF = () => {
     },
 
     headStyles: {
-      fillColor: [30, 41, 59],
+      fillColor: [0, 0, 0],
       textColor: 255,
       fontStyle: "bold",
       halign: "center",
@@ -270,7 +476,7 @@ const exportToPDF = () => {
     );
 
     doc.setFontSize(9);
-    doc.setTextColor(130);
+    doc.setTextColor(220, 38, 38);
 
     doc.text(
       "Confidential • Tortillon Technology",
@@ -288,7 +494,6 @@ const exportToPDF = () => {
   doc.save(`tasks-report-${projectName}.pdf`);
   toast.success("PDF exported successfully");
 };
-
 
 
 
