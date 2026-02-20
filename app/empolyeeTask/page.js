@@ -164,7 +164,7 @@ const exportToPDF = () => {
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(18);
-  doc.text("Tortillon Technology", 40, 35);
+  doc.text("tortillon technology", 40, 35);
 
   doc.setFontSize(11);
   doc.setFont("helvetica", "normal");
@@ -307,7 +307,7 @@ doc.text(`Generated on ${generatedDate}`, 40, 145);
     doc.setTextColor(220, 38, 38);
 
     doc.text(
-      "Confidential • Tortillon Technology",
+      "Confidential • tortillon technology",
       40,
       doc.internal.pageSize.height - 25
     );
