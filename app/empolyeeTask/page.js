@@ -126,6 +126,7 @@ useEffect(() => {
     fetchTasks();
   }, [fetchTasks]);
 
+
 const exportToPDF = () => {
   if (!tasks || tasks.length === 0) {
     toast.error("No tasks to export");
@@ -157,7 +158,7 @@ const exportToPDF = () => {
   // =====================================================
   // HEADER BAR
   // =====================================================
-  doc.setFillColor(15, 23, 42);
+  doc.setFillColor(0, 0, 0);
   doc.rect(0, 0, 595, 70, "F");
 
   doc.setTextColor(255, 255, 255);
@@ -167,7 +168,7 @@ const exportToPDF = () => {
 
   doc.setFontSize(11);
   doc.setFont("helvetica", "normal");
-  doc.text("View on Your Business", 40, 55);
+  doc.text("We on Your Business", 40, 55);
 
   // RESET TEXT COLOR
   doc.setTextColor(30, 30, 30);
@@ -183,13 +184,19 @@ const exportToPDF = () => {
   doc.setFont("helvetica", "normal");
   doc.text(projectName, 40, 130);
 
-  doc.setFontSize(10);
-  doc.setTextColor(120);
-  doc.text(
-    `Generated on ${new Date().toLocaleString()}`,
-    40,
-    145
-  );
+  const generatedDate = new Date().toLocaleString("en-US", {
+  year: "numeric",
+  month: "short",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: true, // ✅ AM/PM
+});
+
+doc.setFontSize(10);
+doc.setTextColor(120);
+doc.text(`Generated on ${generatedDate}`, 40, 145);
 
   doc.setTextColor(30);
 
@@ -262,7 +269,7 @@ const exportToPDF = () => {
     },
 
     headStyles: {
-      fillColor: [30, 41, 59],
+      fillColor: [0, 0, 0],
       textColor: 255,
       fontStyle: "bold",
       halign: "center",
@@ -297,7 +304,7 @@ const exportToPDF = () => {
     );
 
     doc.setFontSize(9);
-    doc.setTextColor(130);
+    doc.setTextColor(220, 38, 38);
 
     doc.text(
       "Confidential • Tortillon Technology",
