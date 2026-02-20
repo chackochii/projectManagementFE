@@ -16,6 +16,8 @@ export default function EmployeeTasksPage() {
 
   const [allUsers, setAllUsers] = useState([]);
   const [allProjects, setAllProjects] = useState([]);
+  const [isReady, setIsReady] = useState(false);
+
 
   const [filters, setFilters] = useState({
     userId: "",
@@ -35,7 +37,10 @@ useEffect(() => {
 
   if (storedUser) setUser(JSON.parse(storedUser));
   if (storedToken) setToken(storedToken);
+
+  setIsReady(true);
 }, []);
+
 
 
 
@@ -364,6 +369,14 @@ const exportToPDF = () => {
 
   return `${hrs}h ${mins}m ${secs}s`;
 };
+
+
+
+if (!isReady) {
+  return (
+  <>loading...</>
+  );
+}
 
   return (
     <div className="p-6 space-y-8">
