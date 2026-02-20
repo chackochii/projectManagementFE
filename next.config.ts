@@ -1,9 +1,37 @@
-import type { NextConfig } from "next";
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  // Prevent weak ETags (helps with chunk caching issues)
+  generateEtags: false,
 
-const nextConfig: NextConfig = {
-  output: "standalone",
+  // Enable strict production optimizations
+  reactStrictMode: true,
+
+  // Production compression
   compress: true,
-  poweredByHeader: false,
+
+  // Fix chunk caching + 404 chunk errors
+  async headers() {
+    return [
+      {
+        source: "/_next/static/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+    ];
+  },
+
+  // Prevent stale chunks after deployment
+  experimental: {
+    optimizePackageImports: [
+      "framer-motion",
+      "jspdf",
+      "jspdf-autotable",
+    ],
+  },
 };
 
 export default nextConfig;
