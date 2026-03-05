@@ -49,11 +49,14 @@ function getColor(name) {
 
 
 export default function TaskCard({ task, index }) {
+   console.log(`Rendering Task ${task.id}: type is "${task.type}"`);
   const initials = getInitials(task.assigneeName);
   const bgColor = getColor(task.assigneeName);
 
-  return (
-    <Draggable draggableId={task.id} index={index}>
+  console.log("TYPE:", JSON.stringify(task.type));
+
+ return (
+    <Draggable draggableId={String(task.id)} index={index}>
       {(provided, snapshot) => (
         <div
           ref={provided.innerRef}
@@ -64,8 +67,15 @@ export default function TaskCard({ task, index }) {
           }`}
         >
           <div className="flex-1">
-            <div className="text-sm text-slate-200 mb-2">
+            {/* ✅ Title + RC Tag */}
+            <div className="text-sm text-slate-200 mb-2 flex items-center gap-2 flex-wrap">
               {task.title}
+
+             {task.type?.toLowerCase()== "rc" && (
+  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-red-500 text-white">
+    RC
+  </span>
+)}
             </div>
 
             <div className="flex items-center gap-3">
