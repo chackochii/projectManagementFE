@@ -50,7 +50,7 @@ const TaskRow = memo(({ task, onToggle, onReview, isAnyOtherRunning, formatTime 
         <div className="flex items-center gap-3">
           <button
             onClick={() => onToggle(task)}
-            disabled={!task.isRunning && isAnyOtherRunning}
+            disabled={false}
             className={`p-2 rounded-full ${task.isRunning ? "bg-red-600" : "bg-green-600"} disabled:bg-gray-600 transition-colors`}
           >
             {task.isRunning ? <Square size={18} /> : <Play size={18} />}
@@ -167,32 +167,63 @@ useEffect(() => {
     };
   };
 
-  const toggleTask = async (task) => {
-    try {
-      if (task.isRunning) {
+const toggleTask = async (task) => {
+  try {
+    // -----------------------------
+    // CASE 1: STOP CURRENT TASK
+    // -----------------------------
+    if (task.isRunning) {
+      const updated = await endTaskIfRunning(task);
 
-  const updated = await endTaskIfRunning(task);
+      setTasks(prev =>
+        prev.map(t => t.id === task.id ? updated : t)
+      );
 
-  setTasks(prev =>
-    prev.map(t => t.id === task.id ? updated : t)
-  );
-
-  // refresh total from backend
-  fetchTodayWorked();
-}
-
-
-       else {
-        await axios.post(`${baseUrl}/tasks/start/${task.id}`, {}, { ...authConfig, timeout: 10000 });
-        const startTime = Date.now();
-        setTasks((prev) => prev.map((t) =>
-          t.id === task.id ? { ...t, isRunning: true, startTime } : { ...t, isRunning: false }
-        ));
-      }
-    } catch (err) {
-      console.error("Failed to toggle task:", err);
+      fetchTodayWorked();
+      return;
     }
-  };
+
+    // -----------------------------
+    // CASE 2: START NEW TASK
+    // (Ensure ONLY ONE RUNNING)
+    // -----------------------------
+
+    // Find currently running task
+    const runningTask = tasks.find(t => t.isRunning);
+
+    let updatedTasks = [...tasks];
+
+    // ✅ END currently running task FIRST
+    if (runningTask) {
+      const stopped = await endTaskIfRunning(runningTask);
+
+      updatedTasks = updatedTasks.map(t =>
+        t.id === runningTask.id ? stopped : t
+      );
+    }
+
+    // ✅ START selected task
+    await axios.post(
+      `${baseUrl}/tasks/start/${task.id}`,
+      {},
+      { ...authConfig, timeout: 10000 }
+    );
+
+    const startTime = Date.now();
+
+    // ✅ Update UI atomically
+    setTasks(updatedTasks.map(t =>
+      t.id === task.id
+        ? { ...t, isRunning: true, startTime }
+        : { ...t, isRunning: false, startTime: null }
+    ));
+
+    fetchTodayWorked();
+
+  } catch (err) {
+    console.error("Failed to toggle task:", err);
+  }
+};
 
   const sendToReview = async (task) => {
     try {
