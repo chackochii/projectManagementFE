@@ -72,94 +72,118 @@ export default function Board() {
   // -------------------
   // Fetch Tasks & Users
   // -------------------
+
+const fetchData = async () => {
+  setLoading(true);
+
+  try {
+    // =========================
+    // 1. USERS
+    // =========================
+    const usersData = await fetchWithTimeout(
+      `${baseUrl}/project-members/${projectId}/members`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
+    const members =
+      usersData?.members?.data?.filter(
+        (user) => user.role !== "admin"
+      ) || [];
+
+    setUsers(members);
+
+    // =========================
+    // 2. TASKS
+    // =========================
+    const statuses = ["todo", "in-progress", "review", "done"];
+
+    const taskResults = await Promise.all(
+      statuses.map((status) =>
+        fetchWithTimeout(
+          `${baseUrl}/tasks/status/${status}/${projectId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        )
+      )
+    );
+    console.log(taskResults,"------.")
+
+    // =========================
+    // 3. NORMALIZE RESPONSE ✅
+    // =========================
+    const normalizedResults = taskResults.map((res) => {
+      if (Array.isArray(res)) return res;
+      if (Array.isArray(res?.tasks)) return res.tasks;
+      if (Array.isArray(res?.data)) return res.data;
+      return [];
+    });
+
+    // =========================
+    // 4. MAP TASKS
+    // =========================
+    setAllColumns(
+      statuses.map((status, index) => ({
+        id: status,
+        title:
+          status === "todo"
+            ? "To Do"
+            : status === "in-progress"
+            ? "In Progress"
+            : status === "review"
+            ? "Review"
+            : "Done",
+
+        tasks: normalizedResults[index].map((task) => {
+          const assignee = members.find(
+            (u) => String(u.id) === String(task.assigneeId)
+          );
+
+              
+          if (task.type) console.log(`Task ${task.id} has type: ${task.type}`);
+          if (task.title) console.log(`Task ${task.id} has type: ${task.title}`);
+
+          return {
+            id: String(task.id),
+            title: task.title,
+            description: task.description,
+            priority: task.priority,
+            assigneeId: task.assigneeId,
+            type: task.type || null,
+
+            // ✅ HARD NORMALIZATION
+            // type:
+            //   typeof task.type === "string"
+            //     ? task.type.trim().toLowerCase()
+            //     : null,
+
+            assigneeName:
+              assignee?.name ||
+              task.name ||
+              "Unassigned",
+          };
+        }),
+      }))
+    );
+  } catch (err) {
+    console.error(err);
+    toast.error("Failed to load board data");
+  }
+
+  setLoading(false);
+};
+
+
+
+
+
 useEffect(() => {
   if (!projectId || !token) return;
-
-  const fetchData = async () => {
-    setLoading(true);
-
-    try {
-      // =========================
-      // 1. FETCH USERS FIRST
-      // =========================
-      const usersData = await fetchWithTimeout(
-        `${baseUrl}/project-members/${projectId}/members`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
-      const members =
-        usersData?.members?.data?.filter(
-          (user) => user.role !== "admin"
-        ) || [];
-
-      setUsers(members);
-
-      // =========================
-      // 2. FETCH TASKS AFTER USERS
-      // =========================
-      const statuses = ["todo", "in-progress", "review", "done"];
-
-      const taskResults = await Promise.all(
-        statuses.map((status) =>
-          fetchWithTimeout(
-            `${baseUrl}/tasks/status/${status}/${projectId}`,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-              },
-            }
-          )
-        )
-      );
-
-      // =========================
-      // 3. MAP TASKS WITH CORRECT USER NAMES
-      // =========================
-      setAllColumns(
-        statuses.map((status, index) => ({
-          id: status,
-          title:
-            status === "todo"
-              ? "To Do"
-              : status === "in-progress"
-              ? "In Progress"
-              : status === "review"
-              ? "Review"
-              : "Done",
-
-          tasks: Array.isArray(taskResults[index])
-            ? taskResults[index].map((task) => {
-                const assignee = members.find(
-                  (u) => u.id === task.assigneeId
-                );
-
-                return {
-                  id: String(task.id),
-                  title: task.title,
-                  description: task.description,
-                  priority: task.priority,
-                  assigneeId: task.assigneeId,
-
-                  // ✅ THIS NOW WORKS CORRECTLY
-                  assigneeName:
-                    assignee?.name ||
-                    task.name ||   // fallback from API
-                    "Unassigned",
-                };
-              })
-            : [],
-        }))
-      );
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to load board data");
-    }
-
-    setLoading(false);
-  };
 
   fetchData();
 }, [projectId, token]);
@@ -225,12 +249,14 @@ useEffect(() => {
       await updateStatus(draggableId, destination.droppableId);
     } catch {
       toast.error("Failed to update task");
+
+       await fetchData();
       // Reload tasks
-      if (projectId && token) {
-        fetchWithTimeout(`${baseUrl}/tasks/status/todo/${projectId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-      }
+      // if (projectId && token) {
+      //   fetchWithTimeout(`${baseUrl}/tasks/status/todo/${projectId}`, {
+      //     headers: { Authorization: `Bearer ${token}` },
+      //   });
+      // }
     }
   };
 
