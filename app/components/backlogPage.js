@@ -11,6 +11,8 @@ export default function BacklogPage() {
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState([]);
   const [token, setToken] = useState(null);
+  const [isManager, setIsManager] = useState(false);
+
 
   const { currentProject } = useProject();
   const projectId = currentProject?.id;
@@ -30,15 +32,32 @@ export default function BacklogPage() {
     type: "task",
     assigneeId: null,
     projectId: currentProject?.id,
+    estimatedTime: "",
   });
 
   // ---------------- LOAD TOKEN ----------------
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const employeeToken = localStorage.getItem("employeeToken");
-      if (employeeToken) setToken(employeeToken);
+useEffect(() => {
+  if (typeof window !== "undefined") {
+    const employeeToken = localStorage.getItem("employeeToken");
+    const employeeUser = localStorage.getItem("employeeUser");
+
+    if (employeeToken) setToken(employeeToken);
+
+    if (employeeUser) {
+      try {
+        const user = JSON.parse(employeeUser);
+
+        // check role
+        if (user.role === "project_manager") {
+          setIsManager(true);
+        }
+      } catch (err) {
+        console.error("Invalid employeeUser JSON");
+      }
     }
-  }, []);
+  }
+}, []);
+
 
   // ---------------- SAFE FETCH FUNCTION WITH TIMEOUT ----------------
   const fetchWithTimeout = async (url, options = {}, timeout = 8000) => {
@@ -140,7 +159,7 @@ const fetchUsers = async () => {
 
       await fetchBacklog();
       setIsModalOpen(false);
-      setForm({ title: "", description: "", priority: "medium", type: "task", assigneeId: null, projectId });
+      setForm({ title: "", description: "", priority: "medium", type: "task", assigneeId: null, projectId, estimatedTime: "",});
       toast.success("Issue created successfully!");
     } catch (err) {
       console.error("Error creating task:", err);
@@ -545,9 +564,31 @@ const fetchUsers = async () => {
                 >
                   <option value="task">Task</option>
                   <option value="bug">Bug</option>
-                  <option value="story">Story</option>
+                  <option value="rc">RC</option>
                 </select>
+
+                           {form.type === "rc" && (
+  <div className="mt-4">
+    <label className="text-gray-300 text-sm">
+      Estimated Time (hours)
+    </label>
+
+    <input
+      type="number"
+      min="1"
+      placeholder="e.g. 4"
+      className="w-full bg-[#1e293b] text-white p-2 rounded-lg mt-1 border border-[#243349]"
+      value={form.estimatedTime}
+      onChange={(e) =>
+        setForm({ ...form, estimatedTime: e.target.value })
+      }
+    />
+  </div>
+)}
               </div>
+
+   
+
 
               <div>
                 <label className="text-gray-300 text-sm">Priority</label>
