@@ -72,8 +72,8 @@ export default function TaskCard({ task, index }) {
               {task.title}
 
              {task.type?.toLowerCase()== "rc" && (
-  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-red-500 text-white">
-    RC
+  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-red-700 text-white">
+    CR
   </span>
 )}
             </div>
