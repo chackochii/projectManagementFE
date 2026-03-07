@@ -564,7 +564,7 @@ const fetchUsers = async () => {
                 >
                   <option value="task">Task</option>
                   <option value="bug">Bug</option>
-                  <option value="rc">RC</option>
+                  <option value="rc">CR</option>
                 </select>
 
                            {form.type === "rc" && (
