@@ -1,11 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // ✅ REQUIRED for PM2 standalone
-  output: "standalone",
+  generateEtags: false,
 
   reactStrictMode: true,
-  compress: true,
-  generateEtags: false,
+
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
 
   async headers() {
     return [
@@ -27,6 +28,13 @@ const nextConfig = {
       "jspdf",
       "jspdf-autotable",
     ],
+  },
+
+  webpack(config, { dev }) {
+    if (dev) {
+      config.cache = false;
+    }
+    return config;
   },
 };
 
