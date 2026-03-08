@@ -4,8 +4,12 @@ const nextConfig = {
 
   reactStrictMode: true,
 
-  eslint: {
-    ignoreDuringBuilds: true,
+  experimental: {
+    optimizePackageImports: [
+      "framer-motion",
+      "jspdf",
+      "jspdf-autotable",
+    ],
   },
 
   async headers() {
@@ -22,20 +26,7 @@ const nextConfig = {
     ];
   },
 
-  experimental: {
-    optimizePackageImports: [
-      "framer-motion",
-      "jspdf",
-      "jspdf-autotable",
-    ],
-  },
-
-  webpack(config, { dev }) {
-    if (dev) {
-      config.cache = false;
-    }
-    return config;
-  },
+  turbopack: {}
 };
 
 export default nextConfig;
