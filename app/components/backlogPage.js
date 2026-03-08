@@ -524,16 +524,25 @@ const fetchUsers = async () => {
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
           <div className="bg-[#0f172a] w-full max-w-lg mx-4 sm:mx-0 p-4 sm:p-6 rounded-xl border border-[#243349] shadow-xl animate-fadeIn max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl text-white font-semibold">Create Issue</h2>
+ <div className="flex justify-between items-center mb-4">
+  <div className="flex items-center gap-3">
+    <h2 className="text-xl text-white font-semibold">Create Issue</h2>
 
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="text-gray-400 hover:text-white"
-              >
-                ✕
-              </button>
-            </div>
+    {/* Project Badge */}
+    {currentProject && (
+      <span className="px-3 py-1 text-xs rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+        {currentProject.name}
+      </span>
+    )}
+  </div>
+
+  <button
+    onClick={() => setIsModalOpen(false)}
+    className="text-gray-400 hover:text-white"
+  >
+    ✕
+  </button>
+</div>
 
             {/* TITLE */}
             <label className="text-gray-300 text-sm">Title</label>
