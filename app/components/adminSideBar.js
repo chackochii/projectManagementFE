@@ -19,7 +19,7 @@ const navItems = [
   { label: "Task Management", href: "/admin/empolyeeTask", icon: FiBox },
   { label: "Invoice", href: "/admin/dummy", icon: FiFileText },
   // { label: "Accounting", href: "/admin/accounting", icon: FiClipboard }, 
-  // { label: "CostEstimate", href: "/admin/costEstimate", icon: FiLayers },
+  { label: "CostEstimate", href: "/admin/costEstimate", icon: FiLayers },
 ];
 
 export default function AdminSidebar() {
