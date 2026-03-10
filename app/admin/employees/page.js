@@ -18,6 +18,13 @@ const UserRow = memo(({ user, onEdit, onDelete, onStatusChange }) => {
           {user.role}
         </span>
       </td>
+      <td className="p-4 text-slate-300">
+  {user.hourlyRate ? `₹${user.hourlyRate}` : "-"}
+</td>
+
+<td className="p-4 text-slate-300">
+  {user.monthlySalary ? `₹${user.monthlySalary}` : "-"}
+</td>
       <td className="p-4">
         {user.status === "active" ? (
           <span className="px-2 py-1 bg-green-900/40 text-green-400 rounded-lg text-sm">
@@ -90,6 +97,7 @@ export default function UsersPage() {
   const [form, setForm] = useState({
     name: "", email: "", password: "", role: "developer",
     address: "", phone: "", identification: "",
+    hourlyRate: "", monthlySalary: ""
   });
 
   const baseUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -208,6 +216,8 @@ export default function UsersPage() {
       name: user.name, email: user.email, password: "",
       role: user.role, address: user.address, phone: user.phone,
       identification: user.identification,
+      hourlyRate: user.hourlyRate || "",
+      monthlySalary: user.monthlySalary || ""
     });
     setIsEditMode(true);
     setIsModalOpen(true);
@@ -221,6 +231,7 @@ export default function UsersPage() {
     setForm({
       name: "", email: "", password: "", role: "developer",
       address: "", phone: "", identification: "",
+      hourlyRate: "", monthlySalary: ""
     });
   };
 
@@ -261,6 +272,8 @@ export default function UsersPage() {
               <th className="text-left p-4 border-b border-slate-800">Name</th>
               <th className="text-left p-4 border-b border-slate-800">Email</th>
               <th className="text-left p-4 border-b border-slate-800">Role</th>
+              <th className="text-left p-4 border-b border-slate-800">Hourly Rate</th>
+              <th className="text-left p-4 border-b border-slate-800">Monthly Salary</th>
               <th className="text-left p-4 border-b border-slate-800">Status</th>
               <th className="text-right p-4 border-b border-slate-800">Actions</th>
             </tr>
@@ -293,9 +306,19 @@ export default function UsersPage() {
               </span>
             </div>
             <p className="text-slate-400 text-sm mt-1">{user.email}</p>
-            <div className="mt-2 flex items-center gap-2">
-              <span className="px-2 py-1 bg-slate-800 rounded-lg text-slate-300 text-sm">{user.role}</span>
-            </div>
+           <div className="mt-2 flex flex-col gap-1 text-sm text-slate-300">
+  <span className="px-2 py-1 bg-slate-800 rounded-lg w-fit">
+    {user.role}
+  </span>
+
+  <span>
+    Hourly Rate: {user.hourlyRate ? `₹${user.hourlyRate}` : "-"}
+  </span>
+
+  <span>
+    Monthly Salary: {user.monthlySalary ? `₹${user.monthlySalary}` : "-"}
+  </span>
+</div>
             <div className="flex justify-end gap-2 mt-3">
               <button onClick={() => openEditModal(user)} className="px-3 py-1 bg-blue-600 rounded-lg text-sm flex items-center gap-1"><Edit size={14} /> Edit</button>
               <button onClick={() => deleteUser(user.id)} className="px-3 py-1 bg-red-600 rounded-lg text-sm flex items-center gap-1"><Trash2 size={14} /> Delete</button>
@@ -320,6 +343,9 @@ export default function UsersPage() {
                 ["phone", "Phone", "text"],
                 ["identification", "Identification", "text"],
                 ["address", "Address", "text"],
+                ["hourlyRate", "Hourly Rate", "number"],
+                ["monthlySalary", "Monthly Salary", "number"],
+
               ].map(([key, placeholder, type]) => (
                 <input
                   key={key}
