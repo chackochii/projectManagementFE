@@ -369,6 +369,7 @@ export default function UsersPage() {
                 <option value="designer">Designer</option>
                 <option value="project_manager">Project Manager</option>
                 <option value="admin">Admin</option>
+                <option value="client">Client</option>
               </select>
             </div>
 
