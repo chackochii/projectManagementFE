@@ -134,7 +134,7 @@ export default function AdminDashboard() {
       {/* HEADER SECTION */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">Admin Dashboard</h1>
+          <h1 className="text-3xl font-bold text-white tracking-tight"></h1>
           <p className="text-slate-400 mt-1">Real-time team performance & task metrics</p>
         </div>
         
