@@ -16,32 +16,40 @@ import {
   Cell,
   Legend,
 } from "recharts";
+import { FiClock, FiCheckCircle, FiLayers, FiLoader, FiTarget } from "react-icons/fi";
 
-// --- Fixed Clock Component to prevent Hydration Error ---
+// --- Fixed Clock Component ---
 const TimeDisplay = memo(() => {
-  // Start with null/empty so the Server and Client match on first render
   const [time, setTime] = useState(null);
 
   useEffect(() => {
-    // This only runs on the Client
-    setTime(new Date().toLocaleString());
-
+    setTime(new Date().toLocaleTimeString());
     const interval = setInterval(() => {
-      setTime(new Date().toLocaleString());
+      setTime(new Date().toLocaleTimeString());
     }, 1000);
-    
     return () => clearInterval(interval);
   }, []);
 
-  // While time is null (during server render and first client pass), 
-  // show a placeholder to avoid text mismatch
   return (
-    <p className="text-slate-300">
-      {time ? time : "Loading time..."}
-    </p>
+    <span className="text-xl font-mono font-bold text-indigo-400">
+      {time ? time : "00:00:00"}
+    </span>
   );
 });
 TimeDisplay.displayName = "TimeDisplay";
+
+// --- Stat Card Helper ---
+const StatCard = ({ title, value, icon: Icon, colorClass }) => (
+  <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-lg flex items-center gap-4">
+    <div className={`p-3 rounded-xl bg-slate-800 ${colorClass}`}>
+      <Icon size={24} />
+    </div>
+    <div>
+      <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">{title}</p>
+      <p className="text-2xl font-bold text-white">{value}</p>
+    </div>
+  </div>
+);
 
 export default function AdminDashboard() {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -59,7 +67,7 @@ export default function AdminDashboard() {
     total: 0,
   });
 
-  const COLORS = ["#60a5fa", "#fbbf24", "#34d399", "#a78bfa"];
+  const COLORS = ["#60a5fa", "#fbbf24", "#a78bfa", "#34d399"];
 
   /* ---------------- TOKEN LOAD ---------------- */
   useEffect(() => {
@@ -89,18 +97,12 @@ export default function AdminDashboard() {
       );
 
       const summary = data.summary || {};
-      const total =
-        (summary.todo || 0) +
-        (summary.inProgress || 0) +
-        (summary.review || 0) +
-        (summary.done || 0);
-
       setIssueStats({
         todo: summary.todo || 0,
         inProgress: summary.inProgress || 0,
         review: summary.review || 0,
         done: summary.done || 0,
-        total: summary.total ?? total,
+        total: summary.total ?? 0,
       });
     } catch (err) {
       console.error(err);
@@ -126,79 +128,88 @@ export default function AdminDashboard() {
   );
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-4 md:p-8 bg-slate-750 min-h-screen text-slate-200">
       <Toaster position="top-right" />
 
-      <div className="flex justify-between items-center mb-8">
+      {/* HEADER SECTION */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-          <p className="text-slate-400">
-            Overview of projects, tasks, and team activity
-          </p>
+          <h1 className="text-3xl font-bold text-white tracking-tight">Admin Dashboard</h1>
+          <p className="text-slate-400 mt-1">Real-time team performance & task metrics</p>
+        </div>
+        
+        {/* TIME CARD - Aligned Top Right */}
+        <div className="bg-slate-900 border border-slate-800 px-6 py-3 rounded-2xl shadow-xl flex items-center gap-4">
+          <div className="flex flex-col items-end">
+            <span className="text-[10px] uppercase text-slate-500 font-bold tracking-[0.2em]">System Time</span>
+            <TimeDisplay />
+          </div>
+          <div className="h-10 w-[1px] bg-slate-800 mx-2"></div>
+          <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">
+            <FiClock size={20} />
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* SUMMARY */}
-        <div className="space-y-6">
-          <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-lg">
-            <h2 className="text-xl font-semibold mb-4">Report Summary</h2>
-            <div className="space-y-2 text-slate-300">
-              <p>Total Tasks: {issueStats.total}</p>
-              <p>To Do: {issueStats.todo}</p>
-              <p>In Progress: {issueStats.inProgress}</p>
-              <p>Review: {issueStats.review}</p>
-              <p>Done: {issueStats.done}</p>
-            </div>
-          </div>
+      {/* STATS ROW - Now horizontal and clean */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+        <StatCard title="Total Tasks" value={issueStats.total} icon={FiLayers} colorClass="text-blue-400" />
+        <StatCard title="To Do" value={issueStats.todo} icon={FiTarget} colorClass="text-slate-400" />
+        <StatCard title="In Progress" value={issueStats.inProgress} icon={FiLoader} colorClass="text-amber-400" />
+        <StatCard title="Review" value={issueStats.review} icon={FiLoader} colorClass="text-purple-400" />
+        <StatCard title="Done" value={issueStats.done} icon={FiCheckCircle} colorClass="text-emerald-400" />
+      </div>
 
-          <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-lg">
-            <h2 className="text-xl font-semibold mb-3">Current Time</h2>
-            <TimeDisplay />
+      {/* CHARTS SECTION - Now taking more space */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        
+        {/* Bar Chart */}
+        <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 shadow-sm">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-lg font-semibold text-white">Contributor Progress</h2>
+            <span className="text-xs text-slate-500 bg-slate-800 px-3 py-1 rounded-full text tracking-tighter">Tasks per User</span>
+          </div>
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={contributors} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid stroke="#1e293b" vertical={false} strokeDasharray="3 3" />
+                <XAxis dataKey="name" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
+                <Tooltip 
+                  cursor={{ fill: '#1e293b' }}
+                  contentStyle={{ backgroundColor: '#0f172a', borderRadius: '12px', border: '1px solid #1e293b', color: '#fff' }}
+                />
+                <Bar dataKey="tasks" fill="#6366f1" radius={[6, 6, 0, 0]} barSize={40} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
-        {/* CHARTS */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-lg">
-            <h2 className="text-xl font-semibold mb-4">Contributor Progress</h2>
-            <div className="h-72">
-              <ResponsiveContainer width="99%" height="100%">
-                <BarChart data={contributors}>
-                  <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" />
-                  <XAxis dataKey="name" stroke="#94a3b8" />
-                  <YAxis stroke="#94a3b8" />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', color: '#fff' }}
-                  />
-                  <Bar dataKey="tasks" fill="#60a5fa" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+        {/* Pie Chart */}
+        <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 shadow-sm">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-lg font-semibold text-white">Task Distribution</h2>
+            <span className="text-xs text-slate-500 bg-slate-800 px-3 py-1 rounded-full tracking-tighter">Current Status</span>
           </div>
-
-          <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-lg">
-            <h2 className="text-xl font-semibold mb-4">Task Distribution</h2>
-            <div className="h-72">
-              <ResponsiveContainer width="99%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={pieData.filter(d => d.value > 0)}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius="70%"
-                    dataKey="value"
-                    isAnimationActive={false}
-                  >
-                    {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Legend />
-                  <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b' }} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={pieData.filter(d => d.value > 0)}
+                  innerRadius="60%"
+                  outerRadius="80%"
+                  paddingAngle={5}
+                  dataKey="value"
+                  isAnimationActive={true}
+                >
+                  {pieData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="none" />
+                  ))}
+                </Pie>
+                <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderRadius: '12px', border: '1px solid #1e293b' }} />
+                <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
+              </PieChart>
+            </ResponsiveContainer>
           </div>
         </div>
       </div>
