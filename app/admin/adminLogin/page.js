@@ -5,12 +5,14 @@ import axios from "axios";
 import { motion } from "framer-motion";
 import { FiMail, FiLock } from "react-icons/fi";
 import { toast, Toaster } from "react-hot-toast";
+import { FiEye, FiEyeOff } from "react-icons/fi";
 
 const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
 export default function AdminLoginPage() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleInput = (e) => {
     setForm((prev) => ({
@@ -102,6 +104,7 @@ export default function AdminLoginPage() {
               <input
                 type="email"
                 name="email"
+                placeholder="Please enter your email"
                 value={form.email}
                 onChange={handleInput}
                 className="bg-transparent w-full text-white outline-none"
@@ -109,19 +112,29 @@ export default function AdminLoginPage() {
             </div>
           </div>
 
-          <div>
-            <label className="text-slate-300 text-sm">Password</label>
-            <div className="flex items-center mt-2 bg-slate-800/60 border border-slate-700 rounded-xl px-4 py-3">
-              <FiLock className="text-slate-400 mr-3" />
-              <input
-                type="password"
-                name="password"
-                value={form.password}
-                onChange={handleInput}
-                className="bg-transparent w-full text-white outline-none"
-              />
-            </div>
-          </div>
+         <div>
+  <label className="text-slate-300 text-sm">Password</label>
+  <div className="flex items-center mt-2 bg-slate-800/60 border border-slate-700 rounded-xl px-4 py-3">
+    <FiLock className="text-slate-400 mr-3" />
+
+    <input
+      type={showPassword ? "text" : "password"}
+      name="password"
+      placeholder="Please enter your password"
+      value={form.password}
+      onChange={handleInput}
+      className="bg-transparent w-full text-white outline-none"
+    />
+
+    <button
+      type="button"
+      onClick={() => setShowPassword((prev) => !prev)}
+      className="ml-2 text-slate-400 hover:text-white"
+    >
+      {showPassword ? <FiEyeOff /> : <FiEye />}
+    </button>
+  </div>
+</div>
 
           <motion.button
             whileHover={{ scale: 1.03 }}
