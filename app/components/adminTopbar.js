@@ -13,7 +13,7 @@ export default function AdminTopbar() {
       <div className="flex items-center gap-3 sm:gap-5">
 
         {/* Search Bar */}
-        <div className="relative w-28 sm:w-40 md:w-64">
+        {/* <div className="relative w-28 sm:w-40 md:w-64">
           <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 sm:w-5 sm:h-5" />
           <input
             type="text"
@@ -21,10 +21,10 @@ export default function AdminTopbar() {
             className="bg-slate-800 text-white pl-9 pr-3 py-1.5 sm:py-2 rounded-lg w-full 
                        focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm sm:text-base"
           />
-        </div>
+        </div> */}
 
         {/* Bell Icon */}
-        <FiBell className="text-slate-300 w-5 h-5 cursor-pointer hover:text-white transition" />
+        {/* <FiBell className="text-slate-300 w-5 h-5 cursor-pointer hover:text-white transition" /> */}
 
         {/* Avatar */}
         <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-indigo-600 
