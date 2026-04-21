@@ -6,13 +6,25 @@ import Sidebar from "./components/sidebar";
 import Topbar from "./components/topbar";
 import { ProjectProvider } from "./context/ProjectContext";
 
+// Import your routes
+const layoutRoutes = [
+  "/dashboard",
+  "/board",
+  "/backlog",
+  "/reports",
+  "/leave",
+  "/activeTickets",
+  "/projects",
+  "/dummy",
+  "/empolyeeTask",
+];
+
 export default function ClientLayout({ children }) {
   const pathname = usePathname();
 
   const noLayout = useMemo(() => {
-    const hideLayout = pathname.startsWith("/admin");
-    const isLoginPage = ["/login", "/register", "/forgot-password", "/"].includes(pathname);
-    return hideLayout || isLoginPage;
+    // Logic: If the current pathname is NOT in the layoutRoutes list, then noLayout is true
+    return !layoutRoutes.includes(pathname);
   }, [pathname]);
 
   return (
