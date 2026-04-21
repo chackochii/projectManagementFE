@@ -6,7 +6,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { 
   FiUsers, FiCalendar, FiHome, FiMenu, FiFile, 
   FiDisc, FiLogOut, FiUserCheck, FiBox, FiClipboard, FiTablet,
-  FiFileText, FiLayers
+  FiFileText, FiLayers, FiAlertTriangle // Added Alert icon
 } from "react-icons/fi";
 
 const navItems = [
@@ -24,8 +24,15 @@ const navItems = [
 
 export default function AdminSidebar() {
   const [open, setOpen] = useState(false);
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false); // 1. Added State
   const router = useRouter();
   const pathname = usePathname();
+
+  // 2. Extracted logout logic
+  const handleLogout = () => {
+    localStorage.clear();
+    router.replace("/admin/adminLogin");
+  };
 
   return (
     <>
@@ -94,11 +101,7 @@ export default function AdminSidebar() {
           </nav>
 
           <button
-            onClick={() => {
-              localStorage.clear();
-              router.replace("/admin/adminLogin");
-              setOpen(false);
-            }}
+            onClick={() => setIsLogoutModalOpen(true)}
             className="m-4 flex items-center gap-3 px-4 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition"
           >
             <FiLogOut size={18} />
@@ -106,6 +109,44 @@ export default function AdminSidebar() {
           </button>
         </div>
       </aside>
+
+      {/* 4. LOGOUT CONFIRMATION MODAL */}
+      {isLogoutModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div 
+            className="bg-slate-900 border border-slate-800 w-[260px] rounded-2xl p-5 shadow-2xl animate-in fade-in zoom-in duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex flex-col items-center text-center">
+              <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 mb-3">
+                <FiAlertTriangle size={20} />
+              </div>
+              
+              <h3 className="text-lg font-semibold text-white mb-1">
+                Admin Logout
+              </h3>
+              <p className="text-slate-400 text-xs mb-5 leading-relaxed px-2">
+                Are you sure you want to exit the admin panel?
+              </p>
+
+              <div className="flex gap-2 w-full">
+                <button
+                  onClick={() => setIsLogoutModalOpen(false)}
+                  className="flex-1 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition text-xs font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="flex-1 px-3 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white transition text-xs font-medium shadow-lg shadow-red-600/20"
+                >
+                  Logout
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Dark overlay on mobile */}
       {open && (
