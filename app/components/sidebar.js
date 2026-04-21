@@ -15,7 +15,8 @@ import {
   FiLogOut,
   FiFile,
   FiFlag,
-  FiBox
+  FiBox,
+  FiAlertTriangle // Ensure this is here!
 } from "react-icons/fi";
 
 import { useProject } from "../context/ProjectContext";
@@ -30,8 +31,8 @@ export default function Sidebar() {
   const [showProjects, setShowProjects] = useState(false);
   const [user, setUser] = useState(null);
   const [mounted, setMounted] = useState(false);
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
-  // ---------------- Effects ----------------
   useEffect(() => {
     setMounted(true);
     const saved = localStorage.getItem("employeeUser");
@@ -75,12 +76,7 @@ export default function Sidebar() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("employeeUser");
-    localStorage.removeItem("employeeToken");
-    localStorage.removeItem("currentProjectId");
-    localStorage.removeItem("currentProject");
-    localStorage.removeItem("token");
-    localStorage.removeItem("adminToken");
+    localStorage.clear(); // Clears all at once safely
     router.replace("/login");
   };
 
@@ -234,7 +230,7 @@ export default function Sidebar() {
 
             {/* Logout */}
             <button
-              onClick={handleLogout}
+               onClick={() => setIsLogoutModalOpen(true)} 
               className="flex items-center gap-2 w-full px-3 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition text-sm"
             >
               <FiLogOut size={16} />
@@ -246,13 +242,46 @@ export default function Sidebar() {
         </div>
       </aside>
 
-      {/* Overlay */}
-      {open && (
-        <div
-          className="fixed inset-0 z-30 bg-black/40 md:hidden"
-          onClick={() => setOpen(false)}
-        />
+  {/* 3. LOGOUT CONFIRMATION MODAL */}
+      {isLogoutModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div 
+            className="bg-slate-900 border border-slate-800 w-[280px] rounded-2xl p-5 shadow-2xl animate-in fade-in zoom-in duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex flex-col items-center text-center">
+              <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 mb-3">
+                <FiAlertTriangle size={20} />
+              </div>
+              
+              <h3 className="text-lg font-semibold text-white mb-1">
+                Confirm Logout
+              </h3>
+              <p className="text-slate-400 text-xs mb-5 px-2 leading-relaxed">
+                Are you sure you want to log out of your workspace?
+              </p>
+
+              <div className="flex gap-2 w-full">
+                <button
+                  onClick={() => setIsLogoutModalOpen(false)}
+                  className="flex-1 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition text-xs font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="flex-1 px-3 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white transition text-xs font-medium shadow-lg shadow-red-600/20"
+                >
+                  Logout
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
+
+      {/* Overlay */}
+      {open && <div className="fixed inset-0 z-30 bg-black/40 md:hidden" onClick={() => setOpen(false)} />}
     </>
   );
 }
