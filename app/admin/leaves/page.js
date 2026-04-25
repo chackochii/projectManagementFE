@@ -4,8 +4,11 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import axios from "axios";
 import { toast, Toaster } from "react-hot-toast";
+import withAdminAuth from "../../../lib/withAdminAuth";
 
-export default function LeaveManagementPage() {
+
+
+function LeaveManagementPage() {
   const [leaves, setLeaves] = useState([]);
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState(null);
@@ -117,8 +120,8 @@ export default function LeaveManagementPage() {
                     <th className="p-3 text-left">From</th>
                     <th className="p-3 text-left">To</th>
                     <th className="p-3 text-left">Type</th>
-                    <th className="p-3 text-left">Status</th>
-                    <th className="p-3 text-left">Action</th>
+                    {/* <th className="p-3 text-left">Status</th>
+                    <th className="p-3 text-left">Action</th> */}
                   </tr>
                 </thead>
 
@@ -134,15 +137,15 @@ export default function LeaveManagementPage() {
                       <td className="p-3">{leave.to}</td>
                       <td className="p-3">{leave.type}</td>
 
-                      <td className="p-3">
+                      {/* <td className="p-3">
                         <span
                           className={`px-3 py-1 rounded-full text-sm ${statusColor[leave.status]}`}
                         >
                           {leave.status}
                         </span>
-                      </td>
+                      </td> */}
 
-                      <td className="p-3 flex gap-3">
+                      {/* <td className="p-3 flex gap-3">
                         {leave.status === "Pending" && (
                           <>
                             <button
@@ -163,7 +166,7 @@ export default function LeaveManagementPage() {
                             </button>
                           </>
                         )}
-                      </td>
+                      </td> */}
                     </tr>
                   ))}
                 </tbody>
@@ -225,3 +228,5 @@ export default function LeaveManagementPage() {
     </div>
   );
 }
+
+export default withAdminAuth(LeaveManagementPage)
