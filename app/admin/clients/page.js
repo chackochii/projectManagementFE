@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { toast, Toaster } from "react-hot-toast";
+import withAdminAuth from "../../../lib/withAdminAuth";
 
-export default function ClientPage() {
+function ClientPage() {
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(false);
   const [token, setToken] = useState("");
@@ -362,3 +363,5 @@ const convertTimeToHours = (timeString) => {
     </div>
   );
 }
+
+export default withAdminAuth(ClientPage)
