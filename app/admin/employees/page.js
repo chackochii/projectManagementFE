@@ -1,11 +1,15 @@
 "use client";
 
-import { Search, UserPlus, MoreVertical, Edit, Trash2, X } from "lucide-react";
+import { 
+  Search, UserPlus, MoreVertical, Edit, Trash2, X, 
+  ChevronUp, ChevronDown, ArrowUpDown 
+} from "lucide-react";
 import { useState, useEffect, useMemo, useCallback, memo } from "react";
 import axios from "axios";
 import { toast, Toaster } from "react-hot-toast";
+import withAdminAuth from "../../../lib/withAdminAuth";
 
-// --- Memoized Row Component to prevent table re-renders ---
+// --- Memoized Row Component ---
 const UserRow = memo(({ user, onEdit, onDelete, onStatusChange }) => {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -84,7 +88,7 @@ const UserRow = memo(({ user, onEdit, onDelete, onStatusChange }) => {
 });
 UserRow.displayName = "UserRow";
 
-export default function UsersPage() {
+function UsersPage() {
   const [mounted, setMounted] = useState(false);
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState("");
@@ -119,7 +123,12 @@ export default function UsersPage() {
       const res = await axios.get(`${baseUrl}/users`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setUsers(res.data.filter(u => u.status !== "blocked"));
+
+      const data = Array.isArray(res.data)
+        ? res.data
+        : res.data.data || [];
+
+      setUsers(data);
     } catch (err) {
       console.error(err);
     }
@@ -403,3 +412,5 @@ export default function UsersPage() {
     </div>
   );
 }
+
+export default withAdminAuth(UsersPage);
