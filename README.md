@@ -81,3 +81,11 @@ Linting: ESLint
 ├── context/               # ProjectContext & Global State
 ├── lib/                   # HOCs (withAuth), Utilities, and API helpers
 └── public/                # Static assets
+
+
+ Recent Updates
+ ------------------
+Authentication: Integrated withAuth and withAdminAuth HOCs for enhanced security across sensitive routes.
+UI/UX: Refactored logout flow to redirect users to the homepage.
+Performance: Refactored AdminReportsPage and ProjectContext for better data handling and state management.
+Features: Added jspdf support for automated reporting and invoice generation.
