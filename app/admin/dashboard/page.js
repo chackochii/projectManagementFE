@@ -15,8 +15,9 @@ import {
   Pie,
   Cell,
   Legend,
-} from "recharts";
+} from "recharts"; 
 import { FiClock, FiCheckCircle, FiLayers, FiLoader, FiTarget } from "react-icons/fi";
+import withAdminAuth from "../../../lib/withAdminAuth";
 
 // --- Fixed Clock Component ---
 const TimeDisplay = memo(() => {
@@ -51,10 +52,9 @@ const StatCard = ({ title, value, icon: Icon, colorClass }) => (
   </div>
 );
 
-export default function AdminDashboard() {
+ function  AdminDashboard() {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
-  /* ---------------- STATE ---------------- */
   const [token, setToken] = useState(null);
   const isFetching = useRef(false);
 
@@ -69,13 +69,11 @@ export default function AdminDashboard() {
 
   const COLORS = ["#60a5fa", "#fbbf24", "#a78bfa", "#34d399"];
 
-  /* ---------------- TOKEN LOAD ---------------- */
   useEffect(() => {
     const t = localStorage.getItem("token");
     if (t) setToken(t);
   }, []);
 
-  /* ---------------- MONTHLY REPORT ---------------- */
   const fetchMonthlyReport = useCallback(async () => {
     if (!token || isFetching.current) return;
 
@@ -89,11 +87,21 @@ export default function AdminDashboard() {
       const employees = Array.isArray(data.employees) ? data.employees : [];
 
       setContributors(
-        employees.map((e) => ({
-          name: e.employee || "Unknown",
-          tasks: Number(e.totalTasks) || 0,
-          hours: Number(e.hoursWorked) || 0,
-        }))
+        employees.map((e) => {
+          // --- Logic to Capitalize First Letter of Each Word ---
+          const rawName = e.employee || "Unknown";
+          const formattedName = rawName
+            .toLowerCase()
+            .split(" ")
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(" ");
+
+          return {
+            name: formattedName, // Uses the capitalized name
+            tasks: Number(e.totalTasks) || 0,
+            hours: Number(e.hoursWorked) || 0,
+          };
+        })
       );
 
       const summary = data.summary || {};
@@ -116,7 +124,6 @@ export default function AdminDashboard() {
     if (token) fetchMonthlyReport();
   }, [token, fetchMonthlyReport]);
 
-  /* ---------------- MEMOIZED CHART DATA ---------------- */
   const pieData = useMemo(
     () => [
       { name: "To Do", value: issueStats.todo },
@@ -138,7 +145,7 @@ export default function AdminDashboard() {
           <p className="text-slate-400 mt-1">Real-time team performance & task metrics</p>
         </div>
         
-        {/* TIME CARD - Aligned Top Right */}
+        {/* TIME CARD */}
         <div className="bg-slate-900 border border-slate-800 px-6 py-3 rounded-2xl shadow-xl flex items-center gap-4">
           <div className="flex flex-col items-end">
             <span className="text-[10px] uppercase text-slate-500 font-bold tracking-[0.2em]">System Time</span>
@@ -151,7 +158,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* STATS ROW - Now horizontal and clean */}
+      {/* STATS ROW */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
         <StatCard title="Total Tasks" value={issueStats.total} icon={FiLayers} colorClass="text-blue-400" />
         <StatCard title="To Do" value={issueStats.todo} icon={FiTarget} colorClass="text-slate-400" />
@@ -160,10 +167,10 @@ export default function AdminDashboard() {
         <StatCard title="Done" value={issueStats.done} icon={FiCheckCircle} colorClass="text-emerald-400" />
       </div>
 
-      {/* CHARTS SECTION - Now taking more space */}
+      {/* CHARTS SECTION */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
-        {/* Bar Chart */}
+        {/* Bar Chart (Contributor Progress) */}
         <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 shadow-sm">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-lg font-semibold text-white">Contributor Progress</h2>
@@ -216,3 +223,5 @@ export default function AdminDashboard() {
     </div>
   );
 }
+
+export default withAdminAuth(AdminDashboard);
