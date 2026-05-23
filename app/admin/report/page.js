@@ -21,10 +21,11 @@ import {
   Cell,
   Legend,
 } from "recharts";
+import withAdminAuth from "../../../lib/withAdminAuth";
 
 const COLORS = ["#60a5fa", "#fbbf24", "#34d399"];
 
-export default function AdminReportsPage() {
+function AdminReportsPage() {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
   const [token, setToken] = useState(null);
@@ -113,14 +114,28 @@ export default function AdminReportsPage() {
 
       const data = res.data;
 
-      setRawContributors(data.employees || []);
-      setIssueStats({
+      const employees = data.employees || [];
+
+      const summary = {
         todo: Number(data.summary?.todo) || 0,
         inProgress: Number(data.summary?.inProgress) || 0,
         done: Number(data.summary?.done) || 0,
-      });
-    } catch (err) {
-      console.error("Report fetch error:", err);
+      };
+
+      const hasNoData =
+        employees.length === 0 &&
+        summary.todo === 0 &&
+        summary.inProgress === 0 &&
+        summary.done === 0;
+
+      if (selectedUser !== "all" && hasNoData) {
+        alert("No data available to display for the selected user.");
+      }
+
+      setRawContributors(employees);
+      setIssueStats(summary);
+    } catch (error) {
+      console.error("Report fetch error:", error);
     } finally {
       if (mountedRef.current) {
         setLoading(false);
@@ -138,36 +153,36 @@ export default function AdminReportsPage() {
     if (api) fetchReport();
   }, [api, fetchReport]);
 
-  /* ===================== MEMOIZED DATA ===================== */
-  const contributors = useMemo(
-    () =>
-      rawContributors.map((e) => ({
-        name: e.employee,
-        tasks: Number(e.totalTasks) || 0,
-        hours: Number(e.hoursWorked) || 0,
-        totalTasks: Number(e.totalTasks) || 0,
-        todo: Number(e.todo) || 0,
-        inProgress: Number(e.inProgress) || 0,
-        review: Number(e.review) || 0,
-        done: Number(e.done) || 0,
-      })),
-    [rawContributors]
-  );
+  /* ===================== DATA ===================== */
+  const contributors = useMemo(() => {
+    return rawContributors.map((e) => ({
+      name: e.employee,
+      tasks: Number(e.totalTasks) || 0,
+      hours: Number(e.hoursWorked) || 0,
+      totalTasks: Number(e.totalTasks) || 0,
+      todo: Number(e.todo) || 0,
+      inProgress: Number(e.inProgress) || 0,
+      review: Number(e.review) || 0,
+      done: Number(e.done) || 0,
+    }));
+  }, [rawContributors]);
 
-  const pieData = useMemo(
-    () => [
+  const pieData = useMemo(() => {
+    return [
       { name: "To Do", value: issueStats?.todo || 0 },
       { name: "In Progress", value: issueStats?.inProgress || 0 },
       { name: "Done", value: issueStats?.done || 0 },
-    ],
-    [issueStats]
-  );
+    ].filter((item) => item.value > 0);
+  }, [issueStats]);
+
+  const hasChartData =
+    contributors.length > 0 || pieData.length > 0;
 
   /* ===================== LOADING ===================== */
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-white text-xl">
-        Loading reports…
+        Loading reports...
       </div>
     );
   }
@@ -196,7 +211,7 @@ export default function AdminReportsPage() {
           <select
             value={selectedUser}
             onChange={(e) => setSelectedUser(e.target.value)}
-            className="bg-slate-800 border border-slate-700 px-3 py-2 rounded outline-none focus:ring-1 focus:ring-blue-500"
+            className="bg-slate-800 border border-slate-700 px-3 py-2 rounded outline-none focus:outline-none focus:ring-0"
           >
             <option value="all">All Employees</option>
             {userList.map((u) => (
@@ -209,7 +224,7 @@ export default function AdminReportsPage() {
           <select
             value={selectedProject}
             onChange={(e) => setSelectedProject(e.target.value)}
-            className="bg-slate-800 border border-slate-700 px-3 py-2 rounded outline-none focus:ring-1 focus:ring-blue-500"
+            className="bg-slate-800 border border-slate-700 px-3 py-2 rounded outline-none focus:outline-none focus:ring-0"
           >
             <option value="all">All Projects</option>
             {projectList.map((p) => (
@@ -222,106 +237,170 @@ export default function AdminReportsPage() {
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Bar */}
-        <div className="bg-slate-900 p-6 rounded-xl border border-slate-800">
-          <h2 className="text-lg font-semibold mb-4">Employee Performance</h2>
-          <div className="h-80">
-            {/* Fix: width="99%" prevents infinite resize loop causing 100% CPU usage */}
-            <ResponsiveContainer width="99%" height="100%">
-              <BarChart data={contributors}>
-                <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" />
-                <XAxis dataKey="name" stroke="#94a3b8" />
-                <YAxis stroke="#94a3b8" />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b' }}
-                  formatter={(v, n) =>
-                    n === "hours" ? formatHoursToHHMMSS(v) : v
-                  }
-                />
-                <Legend />
-                <Bar dataKey="tasks" fill="#818cf8" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="hours" fill="#34d399" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+      {hasChartData && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Bar Chart */}
+          {contributors.length > 0 && (
+            <div className="bg-slate-900 p-6 rounded-xl border border-slate-800">
+              <h2 className="text-lg font-semibold mb-4">
+                Employee Performance
+              </h2>
+
+              <div className="h-80">
+                <ResponsiveContainer width="99%" height="100%">
+                  <BarChart data={contributors} style={{ outline: 'none' }} tabIndex={-1}>
+                    <CartesianGrid
+                      stroke="#1e293b"
+                      strokeDasharray="3 3"
+                    />
+                    <XAxis dataKey="name" stroke="#94a3b8" />
+                    <YAxis stroke="#94a3b8" />
+
+                    <Tooltip
+                      cursor={false}
+                      contentStyle={{
+                        backgroundColor: "#0f172a",
+                        border: "none",
+                        outline: "none",
+                      }}
+                      formatter={(v, n) =>
+                        n === "hours"
+                          ? formatHoursToHHMMSS(v)
+                          : v
+                      }
+                    />
+
+                    <Legend />
+
+                    <Bar
+                      dataKey="tasks"
+                      fill="#818cf8"
+                      radius={[4, 4, 0, 0]}
+                      activeBar={false}
+                      style={{ outline: "none" }}
+                    />
+
+                    <Bar
+                      dataKey="hours"
+                      fill="#34d399"
+                      radius={[4, 4, 0, 0]}
+                      activeBar={false}
+                      style={{ outline: "none" }}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+
+          {/* Pie Chart */}
+          {pieData.length > 0 && (
+            <div className="bg-slate-900 p-6 rounded-xl border border-slate-700">
+              <h2 className="text-lg font-semibold mb-4">
+                Task Distribution
+              </h2>
+
+              <div className="h-80">
+                <ResponsiveContainer width="99%" height="100%" >
+                  <PieChart sstyle={{ outline: 'none' }} tabIndex={-1} >
+                    <Pie
+                      data={pieData}
+                      dataKey="value"
+                      outerRadius="70%"
+                      label
+                      activeShape={false}
+                      stroke="none"
+                      style={{ outline: "none" }}
+                      isAnimationActive={false} 
+                    >
+                      {pieData.map((_, i) => (
+                        <Cell
+                          key={i}
+                          fill={COLORS[i % COLORS.length]}
+                          stroke="none"
+                          style={{ outline: "none" }}
+                        />
+                      ))}
+                    </Pie>
+
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "#0f172a",
+                        border: "none",
+                        outline: "none",
+                      }}
+                    />
+
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
         </div>
+      )}
 
-        {/* Pie */}
-        <div className="bg-slate-900 p-6 rounded-xl border border-slate-800">
-          <h2 className="text-lg font-semibold mb-4">Task Distribution</h2>
-          <div className="h-80">
-            {/* Fix: width="99%" prevents infinite resize loop causing 100% CPU usage */}
-            <ResponsiveContainer width="99%" height="100%">
-              <PieChart>
-                <Pie data={pieData.filter(d => d.value > 0)} dataKey="value" outerRadius="70%" label>
-                  {pieData.map((_, i) => (
-                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b' }} />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
+      {/* Report Table */}
+      {contributors.length > 0 && (
+        <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl mt-8 shadow-lg">
+          <h2 className="text-xl font-semibold mb-4">
+            Employee Task Breakdown
+          </h2>
+
+          {contributors.map((emp) => (
+            <div key={emp.name} className="mb-8">
+              <h3 className="text-lg font-semibold text-blue-300 mb-2">
+                {emp.name}
+              </h3>
+
+              <table className="w-full text-sm text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-700 text-slate-400">
+                    <th className="p-2">Metric</th>
+                    <th className="p-2">Value</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  <tr className="border-b border-slate-800">
+                    <td className="p-2">To Do</td>
+                    <td className="p-2">{emp.todo}</td>
+                  </tr>
+
+                  <tr className="border-b border-slate-800">
+                    <td className="p-2">In Progress</td>
+                    <td className="p-2">{emp.inProgress}</td>
+                  </tr>
+
+                  <tr className="border-b border-slate-800">
+                    <td className="p-2">Review</td>
+                    <td className="p-2">{emp.review}</td>
+                  </tr>
+
+                  <tr className="border-b border-slate-800">
+                    <td className="p-2">Done</td>
+                    <td className="p-2">{emp.done}</td>
+                  </tr>
+
+                  <tr className="border-b border-slate-800">
+                    <td className="p-2">Total Tasks</td>
+                    <td className="p-2">{emp.totalTasks}</td>
+                  </tr>
+
+                  <tr>
+                    <td className="p-2">Hours Worked</td>
+                    <td className="p-2 text-green-400 font-semibold">
+                      {formatHoursToHHMMSS(emp.hours)}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          ))}
         </div>
-      </div>
-
-      {/* TASK REPORT */}
-      <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl mt-8 shadow-lg">
-        <h2 className="text-xl font-semibold mb-4">Employee Task Breakdown</h2>
-
-        {contributors.map((emp) => (
-          <div key={emp.name} className="mb-8">
-            <h3 className="text-lg font-semibold text-blue-300 mb-2">
-              {emp.name} — {formatHoursToHHMMSS(emp.hours)} total
-            </h3>
-
-            <table className="w-full text-sm text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-700 text-slate-400">
-                  <th className="p-2">Metric</th>
-                  <th className="p-2">Value</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                <tr className="border-b border-slate-800">
-                  <td className="p-2 text-white">To Do</td>
-                  <td className="p-2 text-slate-300">{emp.todo}</td>
-                </tr>
-
-                <tr className="border-b border-slate-800">
-                  <td className="p-2 text-white">In Progress</td>
-                  <td className="p-2 text-slate-300">{emp.inProgress}</td>
-                </tr>
-
-                <tr className="border-b border-slate-800">
-                  <td className="p-2 text-white">Review</td>
-                  <td className="p-2 text-slate-300">{emp.review}</td>
-                </tr>
-
-                <tr className="border-b border-slate-800">
-                  <td className="p-2 text-white">Done</td>
-                  <td className="p-2 text-slate-300">{emp.done}</td>
-                </tr>
-
-                <tr className="border-b border-slate-800">
-                  <td className="p-2 text-white">Total Tasks</td>
-                  <td className="p-2 text-slate-300">{emp.totalTasks}</td>
-                </tr>
-
-                <tr>
-                  <td className="p-2 text-white">Hours Worked</td>
-                  <td className="p-2 text-green-400 font-semibold">
-                    {formatHoursToHHMMSS(emp.hours)}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        ))}
-      </div>
+      )}
     </div>
   );
 }
+
+export default withAdminAuth(AdminReportsPage);
