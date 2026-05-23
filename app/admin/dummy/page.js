@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import axios from "axios";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
+import withAdminAuth from "../../../lib/withAdminAuth";
 
 const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
 
@@ -68,7 +69,8 @@ function Select(props) {
 
 /* ================= PAGE ================= */
 
-export default function InvoicePage() {
+
+function InvoicePage() {
   const [token, setToken] = useState(null);
   const [projects, setProjects] = useState([]);
   const [report, setReport] = useState(null);
@@ -624,3 +626,6 @@ const exportInvoiceToPDF = () => {
     </div>
   );
 }
+
+
+export default withAdminAuth(InvoicePage)
