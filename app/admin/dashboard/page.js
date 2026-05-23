@@ -1,625 +1,222 @@
 "use client";
 
-import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { motion } from "framer-motion";
 import axios from "axios";
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
+import { useState, useEffect, useCallback, useMemo, useRef, memo } from "react";
+import { toast, Toaster } from "react-hot-toast";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+} from "recharts"; 
+import { FiClock, FiCheckCircle, FiLayers, FiLoader, FiTarget } from "react-icons/fi";
 import withAdminAuth from "../../../lib/withAdminAuth";
 
-const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
-
-/* ================= UI COMPONENTS ================= */
-
-function Card({ children, className = "" }) {
-  return (
-    <div
-      className={`rounded-xl border border-slate-800 
-      bg-[#0c1424] shadow-xl p-6 ${className}`}
-    >
-      {children}
-    </div>
-  );
-}
-
-function Title({ children }) {
-  return (
-    <h2 className="text-lg font-bold mb-6 text-white border-b border-slate-800 pb-3">
-      {children}
-    </h2>
-  );
-}
-
-function Field({ label, required = false, children }) {
-  return (
-    <div className="space-y-1.5">
-      <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-        {label}
-        {required && <span className="text-red-500 ml-1 text-[12px]">*</span>}
-      </label>
-      {children}
-    </div>
-  );
-}
-
-function Input(props) {
-  return (
-    <input
-      {...props}
-      className="w-full h-11 rounded-lg border border-slate-700 px-4 text-sm
-      bg-[#222a4a] text-white placeholder-slate-500
-      focus:outline-none focus:ring-2 focus:ring-indigo-500
-      disabled:opacity-50"
-    />
-  );
-}
-
-function Select(props) {
-  return (
-    <select
-      {...props}
-      className="w-full h-11 rounded-lg border border-slate-700 px-4 text-sm
-      bg-[#222a4a] text-white
-      focus:outline-none focus:ring-2 focus:ring-indigo-500"
-    >
-      {props.children}
-    </select>
-  );
-}
-
-/* ================= PAGE ================= */
-
-
-function InvoicePage() {
-  const [token, setToken] = useState(null);
-  const [projects, setProjects] = useState([]);
-  const [report, setReport] = useState(null);
-  const [loading, setLoading] = useState(false);
-
-  const [form, setForm] = useState({
-    invoiceNo: "",
-    projectId: "",
-    startDate: "",
-    endDate: "",
-    ratePerHour: "",
-    type: "rc",
-  });
-
-  /* ---------- INIT ---------- */
+// --- Fixed Clock Component ---
+const TimeDisplay = memo(() => {
+  const [time, setTime] = useState(null);
 
   useEffect(() => {
-    const stored = localStorage.getItem("token");
-    setToken(stored);
-    setForm((prev) => ({
-      ...prev,
-      invoiceNo: `INV-${Date.now()}`,
-    }));
+    setTime(new Date().toLocaleTimeString());
+    const interval = setInterval(() => {
+      setTime(new Date().toLocaleTimeString());
+    }, 1000);
+    return () => clearInterval(interval);
   }, []);
 
-  const update = (key, value) =>
-    setForm((prev) => ({ ...prev, [key]: value }));
-
-  /* ---------- FETCH PROJECTS ---------- */
-
-  const fetchProjects = useCallback(async () => {
-    if (!token) return;
-    try {
-      const res = await axios.get(`${baseUrl}/projects`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setProjects(res.data.data || []);
-    } catch (err) {
-      console.error("Project fetch error:", err.response?.data);
-    }
-  }, [token]);
-
-  useEffect(() => {
-    if (token) fetchProjects();
-  }, [token, fetchProjects]);
-
-  /* ---------- FETCH INVOICE REPORT ---------- */
-
-  const fetchInvoiceReport = useCallback(async () => {
-    if (!form.projectId || !form.startDate || !form.endDate) return;
-
-    try {
-      setLoading(true);
-
-      const res = await axios.get(`${baseUrl}/tasks/invoice-report`, {
-        headers: { Authorization: `Bearer ${token}` },
-        params: {
-          projectId: form.projectId,
-          type: form.type,
-          startDate: form.startDate,
-          endDate: form.endDate,
-        },
-      });
-
-      setReport(res.data);
-    } catch (err) {
-      console.error("Invoice report error:", err.response?.data);
-      setReport(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [form, token]);
-
-  useEffect(() => {
-    fetchInvoiceReport();
-  }, [form.projectId, form.type, form.startDate, form.endDate]);
-
-  /* ---------- DERIVED VALUES ---------- */
-
-  const selectedProject = useMemo(() => {
-    return projects.find((p) => String(p.id) === String(form.projectId));
-  }, [projects, form.projectId]);
-
- const totalHours = useMemo(() => {
-  if (!report?.tasks?.length) return 0;
-
-  return report.tasks.reduce(
-    (sum, task) => sum + Number(task.estimatedTime || 0),
-    0
+  return (
+    <span className="text-xl font-mono font-bold text-indigo-400">
+      {time ? time : "00:00:00"}
+    </span>
   );
-}, [report]);
+});
+TimeDisplay.displayName = "TimeDisplay";
 
-  const totalAmount = useMemo(() => {
-    if (!form.ratePerHour) return 0;
-    return totalHours * Number(form.ratePerHour);
-  }, [totalHours, form.ratePerHour]);
+// --- Stat Card Helper ---
+const StatCard = ({ title, value, icon: Icon, colorClass }) => (
+  <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-lg flex items-center gap-4">
+    <div className={`p-3 rounded-xl bg-slate-800 ${colorClass}`}>
+      <Icon size={24} />
+    </div>
+    <div>
+      <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">{title}</p>
+      <p className="text-2xl font-bold text-white">{value}</p>
+    </div>
+  </div>
+);
 
+ function  AdminDashboard() {
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL;
 
+  const [token, setToken] = useState(null);
+  const isFetching = useRef(false);
 
+  const [contributors, setContributors] = useState([]);
+  const [issueStats, setIssueStats] = useState({
+    todo: 0,
+    inProgress: 0,
+    review: 0,
+    done: 0,
+    total: 0,
+  });
 
-  // const exportInvoiceToPDF = () => {
-  //   if (!report?.tasks || report.tasks.length === 0) {
-  //     alert("No tasks found to generate invoice.");
-  //     return;
-  //   }
+  const COLORS = ["#60a5fa", "#fbbf24", "#a78bfa", "#34d399"];
 
-  //   const doc = new jsPDF({ unit: "pt", format: "a4" });
+  useEffect(() => {
+    const t = localStorage.getItem("token");
+    if (t) setToken(t);
+  }, []);
 
-  //   // ---------- HELPERS ----------
-  //   const formatDate = (dateString) => {
-  //     if (!dateString) return "-";
-  //     const date = new Date(dateString);
-  //     const day = String(date.getDate()).padStart(2, "0");
-  //     const month = String(date.getMonth() + 1).padStart(2, "0");
-  //     const year = date.getFullYear();
-  //     return `${day}-${month}-${year}`;
-  //   };
+  const fetchMonthlyReport = useCallback(async () => {
+    if (!token || isFetching.current) return;
 
-  //   const billingDate = formatDate(new Date());
-  //   const periodStart = formatDate(form.startDate);
-  //   const periodEnd = formatDate(form.endDate);
+    try {
+      isFetching.current = true;
+      const res = await axios.get(`${baseUrl}/tasks/monthly`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-  //   // =====================================================
-  //   // HEADER BAR
-  //   // =====================================================
-  //   doc.setFillColor(15, 23, 42); // Dark Slate
-  //   doc.rect(0, 0, 595, 80, "F");
+      const data = res.data || {};
+      const employees = Array.isArray(data.employees) ? data.employees : [];
 
-  //   doc.setTextColor(255, 255, 255);
-  //   doc.setFont("helvetica", "bold");
-  //   doc.setFontSize(22);
-  //   doc.text("TORTILLON TECHNOLOGY", 40, 45);
+      setContributors(
+        employees.map((e) => {
+          // --- Logic to Capitalize First Letter of Each Word ---
+          const rawName = e.employee || "Unknown";
+          const formattedName = rawName
+            .toLowerCase()
+            .split(" ")
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(" ");
 
-  //   doc.setFontSize(10);
-  //   doc.setFont("helvetica", "normal");
-  //   doc.text("INVOICE & WORK REPORT", 40, 62);
+          return {
+            name: formattedName, // Uses the capitalized name
+            tasks: Number(e.totalTasks) || 0,
+            hours: Number(e.hoursWorked) || 0,
+          };
+        })
+      );
 
-  //   // =====================================================
-  //   // INVOICE METADATA (Aligned Right)
-  //   // =====================================================
-  //   doc.setTextColor(30, 30, 30);
-  //   doc.setFontSize(10);
-  //   doc.setFont("helvetica", "bold");
-  //   doc.text("INVOICE NO:", 400, 110);
-  //   doc.text("BILLING DATE:", 400, 125);
-  //   doc.text("PERIOD:", 400, 140);
+      const summary = data.summary || {};
+      setIssueStats({
+        todo: summary.todo || 0,
+        inProgress: summary.inProgress || 0,
+        review: summary.review || 0,
+        done: summary.done || 0,
+        total: summary.total ?? 0,
+      });
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to load report");
+    } finally {
+      isFetching.current = false;
+    }
+  }, [token, baseUrl]);
 
-  //   doc.setFont("helvetica", "normal");
-  //   doc.text(form.invoiceNo, 485, 110);
-  //   doc.text(billingDate, 485, 125);
-  //   doc.text(`${periodStart} to ${periodEnd}`, 485, 140);
+  useEffect(() => {
+    if (token) fetchMonthlyReport();
+  }, [token, fetchMonthlyReport]);
 
-  //   // =====================================================
-  //   // PROJECT INFO (Aligned Left)
-  //   // =====================================================
-  //   doc.setFontSize(12);
-  //   doc.setFont("helvetica", "bold");
-  //   doc.text("BILL TO:", 40, 110);
-    
-  //   doc.setFontSize(16);
-  //   doc.setTextColor(79, 70, 229); // Indigo color
-  //   doc.text(selectedProject?.name || "N/A", 40, 130);
-
-  //   doc.setFontSize(10);
-  //   doc.setTextColor(100);
-  //   doc.setFont("helvetica", "normal");
-  //   doc.text(`Task Type: ${form.type.toUpperCase()}`, 40, 145);
-
-  //   // =====================================================
-  //   // SUMMARY CARDS
-  //   // =====================================================
-  //   const cardY = 170;
-  //   const drawSummaryCard = (x, title, value, isTotal = false) => {
-  //     doc.setDrawColor(230);
-  //     doc.setFillColor(isTotal ? 249 : 255, isTotal ? 250 : 255, isTotal ? 251 : 255);
-  //     doc.roundedRect(x, cardY, 165, 60, 5, 5, "FD");
-
-  //     doc.setFontSize(9);
-  //     doc.setTextColor(120);
-  //     doc.setFont("helvetica", "normal");
-  //     doc.text(title, x + 15, cardY + 22);
-
-  //     doc.setFontSize(14);
-  //     doc.setFont("helvetica", "bold");
-  //     doc.setTextColor(isTotal ? 79 : 20, isTotal ? 70 : 20, isTotal ? 229 : 20);
-  //     doc.text(value, x + 15, cardY + 45);
-  //   };
-
-  //   drawSummaryCard(40, "Total Hours", `${totalHours.toFixed(2)} Hrs`);
-  //   drawSummaryCard(215, "Rate Per Hour", `INR ${form.ratePerHour}`);
-  //   drawSummaryCard(390, "Total Amount", `INR ${totalAmount.toLocaleString("en-IN")}`, true);
-
-  //   // =====================================================
-  //   // WORK LOG TABLE
-  //   // =====================================================
-  //   const tableColumns = ["#", "Task Description", "Assignee", "Hours"];
-  //   const tableRows = report.tasks.map((task, index) => [
-  //     index + 1,
-  //     task.title,
-  //     task.assignee || "Unassigned",
-  //     `${task.estimatedTime.toFixed(2)} hrs`,
-  //   ]);
-
-  //   autoTable(doc, {
-  //     head: [tableColumns],
-  //     body: tableRows,
-  //     startY: cardY + 85,
-  //     theme: "striped",
-  //     styles: { fontSize: 9, cellPadding: 8 },
-  //     headStyles: { 
-  //       fillColor: [15, 23, 42], 
-  //       textColor: 255, 
-  //       fontStyle: "bold",
-  //       halign: "center" 
-  //     },
-  //     columnStyles: {
-  //       0: { halign: "center", cellWidth: 30 },
-  //       1: { cellWidth: "auto" },
-  //       2: { halign: "center", cellWidth: 100 },
-  //       3: { halign: "right", cellWidth: 80 },
-  //     },
-  //     margin: { left: 40, right: 40 },
-  //   });
-
-  //   // =====================================================
-  //   // FOOTER
-  //   // =====================================================
-  //   const finalY = doc.lastAutoTable.finalY + 30;
-    
-  //   doc.setDrawColor(200);
-  //   doc.line(40, finalY, 555, finalY);
-
-  //   doc.setFontSize(10);
-  //   doc.setTextColor(150);
-  //   doc.text("Thank you for your business!", 40, finalY + 20);
-    
-  //   doc.setFont("helvetica", "bold");
-  //   doc.setTextColor(30);
-  //   doc.text("Authorized Signature", 440, finalY + 20);
-  //   doc.line(430, finalY + 45, 555, finalY + 45);
-
-  //   // SAVE PDF
-  //   doc.save(`Invoice_${form.invoiceNo}_${selectedProject?.name}.pdf`);
-  // };
-
-const exportInvoiceToPDF = () => {
-  console.log("Export started...");
-
-  // 1. Check if report exists
-  if (!report || !report.tasks || report.tasks.length === 0) {
-    console.error("No tasks found in report");
-    alert("No tasks found to generate invoice.");
-    return;
-  }
-
-  try {
-    const doc = new jsPDF({ unit: "pt", format: "a4" });
-
-    // Improved Date Helper to prevent crashes
-    const formatDate = (dateString) => {
-      const date = dateString ? new Date(dateString) : new Date();
-      if (isNaN(date.getTime())) return "N/A";
-      const day = String(date.getDate()).padStart(2, "0");
-      const month = String(date.getMonth() + 1).padStart(2, "0");
-      const year = date.getFullYear();
-      return `${day}-${month}-${year}`;
-    };
-
-    const billingDate = formatDate(new Date());
-    const periodStart = formatDate(form.startDate);
-    const periodEnd = formatDate(form.endDate);
-
-    console.log("Dates formatted:", { billingDate, periodStart, periodEnd });
-
-    // HEADER BAR
-    doc.setFillColor(15, 23, 42);
-    doc.rect(0, 0, 595, 80, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(22);
-    doc.text("TORTILLON TECHNOLOGY", 40, 45);
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text("INVOICE & WORK REPORT", 40, 62);
-
-    // INVOICE METADATA
-    doc.setTextColor(30, 30, 30);
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.text("INVOICE NO:", 400, 110);
-    doc.text("BILLING DATE:", 400, 125);
-    doc.text("PERIOD:", 400, 140);
-    doc.setFont("helvetica", "normal");
-    doc.text(String(form.invoiceNo), 485, 110);
-    doc.text(billingDate, 485, 125);
-    doc.text(`${periodStart} to ${periodEnd}`, 485, 140);
-
-    // PROJECT INFO
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text("BILL TO:", 40, 110);
-    doc.setFontSize(16);
-    doc.setTextColor(79, 70, 229);
-    doc.text(selectedProject?.name || "Client Name", 40, 130);
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Task Type: ${form.type.toUpperCase()}`, 40, 145);
-
-    // SUMMARY CARDS
-    const cardY = 170;
-    const drawSummaryCard = (x, title, value, isTotal = false) => {
-      doc.setDrawColor(230);
-      doc.setFillColor(isTotal ? 249 : 255, isTotal ? 250 : 255, isTotal ? 251 : 255);
-      doc.roundedRect(x, cardY, 165, 60, 5, 5, "FD");
-      doc.setFontSize(9);
-      doc.setTextColor(120);
-      doc.text(title, x + 15, cardY + 22);
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(isTotal ? 79 : 20, isTotal ? 70 : 20, isTotal ? 229 : 20);
-      doc.text(value, x + 15, cardY + 45);
-    };
-
-    drawSummaryCard(40, "Total Hours", `${totalHours.toFixed(2)} Hrs`);
-    drawSummaryCard(215, "Rate Per Hour", `INR ${form.ratePerHour || 0}`);
-    drawSummaryCard(390, "Total Amount", `INR ${totalAmount.toLocaleString("en-IN")}`, true);
-
-    // TABLE
-    console.log("Generating table...");
-    const tableColumns = ["ID", "Task Description", "Assignee", "Hours"];
-    const tableRows = report.tasks.map((task, index) => [
-      index + 1,
-      task.title,
-      task.assignee || "Unassigned",
-      `${Number(task.estimatedTime).toFixed(2)} hrs`,
-    ]);
-
-    autoTable(doc, {
-      head: [tableColumns],
-      body: tableRows,
-      startY: cardY + 85,
-      theme: "striped",
-      headStyles: { fillColor: [15, 23, 42], halign: "center" },
-      columnStyles: {
-        0: { halign: "center", cellWidth: 30 },
-        3: { halign: "right", cellWidth: 80 },
-      },
-      margin: { left: 40, right: 40 },
-    });
-
-    // FOOTER
-    const finalY = doc.lastAutoTable.finalY + 40;
-    doc.setDrawColor(200);
-    doc.line(40, finalY, 555, finalY);
-    doc.text("Thank you for your business!", 40, finalY + 20);
-
-    console.log("Saving PDF...");
-    doc.save(`Invoice_${form.invoiceNo}.pdf`);
-    
-  } catch (error) {
-    console.error("PDF Generation Error:", error);
-    alert("Failed to generate PDF. Check console for details.");
-  }
-};
-  /* ================= UI ================= */
+  const pieData = useMemo(
+    () => [
+      { name: "To Do", value: issueStats.todo },
+      { name: "In Progress", value: issueStats.inProgress },
+      { name: "Review", value: issueStats.review },
+      { name: "Done", value: issueStats.done },
+    ],
+    [issueStats]
+  );
 
   return (
-    <div className="p-8 min-h-screen bg-slate-900  text-slate-200">
-      <div className="max-w-7xl mx-auto space-y-8">
-        {/* HEADER */}
+    <div className="p-4 md:p-8 bg-slate-750 min-h-screen text-slate-200">
+      <Toaster position="top-right" />
+
+      {/* HEADER SECTION */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">
-            Invoice Generator
-          </h1>
-          <p className="text-slate-400 text-sm mt-1">
-            Generate invoices from completed tasks.
-          </p>
+          <h1 className="text-3xl font-bold text-white tracking-tight"></h1>
+          <p className="text-slate-400 mt-1">Real-time team performance & task metrics</p>
+        </div>
+        
+        {/* TIME CARD */}
+        <div className="bg-slate-900 border border-slate-800 px-6 py-3 rounded-2xl shadow-xl flex items-center gap-4">
+          <div className="flex flex-col items-end">
+            <span className="text-[10px] uppercase text-slate-500 font-bold tracking-[0.2em]">System Time</span>
+            <TimeDisplay />
+          </div>
+          <div className="h-10 w-[1px] bg-slate-800 mx-2"></div>
+          <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">
+            <FiClock size={20} />
+          </div>
+        </div>
+      </div>
+
+      {/* STATS ROW */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+        <StatCard title="Total Tasks" value={issueStats.total} icon={FiLayers} colorClass="text-blue-400" />
+        <StatCard title="To Do" value={issueStats.todo} icon={FiTarget} colorClass="text-slate-400" />
+        <StatCard title="In Progress" value={issueStats.inProgress} icon={FiLoader} colorClass="text-amber-400" />
+        <StatCard title="Review" value={issueStats.review} icon={FiLoader} colorClass="text-purple-400" />
+        <StatCard title="Done" value={issueStats.done} icon={FiCheckCircle} colorClass="text-emerald-400" />
+      </div>
+
+      {/* CHARTS SECTION */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        
+        {/* Bar Chart (Contributor Progress) */}
+        <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 shadow-sm">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-lg font-semibold text-white">Contributor Progress</h2>
+            <span className="text-xs text-slate-500 bg-slate-800 px-3 py-1 rounded-full text tracking-tighter">Tasks per User</span>
+          </div>
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={contributors} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid stroke="#1e293b" vertical={false} strokeDasharray="3 3" />
+                <XAxis dataKey="name" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
+                <Tooltip 
+                  cursor={{ fill: '#1e293b' }}
+                  contentStyle={{ backgroundColor: '#0f172a', borderRadius: '12px', border: '1px solid #1e293b', color: '#fff' }}
+                />
+                <Bar dataKey="tasks" fill="#6366f1" radius={[6, 6, 0, 0]} barSize={40} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* LEFT COLUMN */}
-          <div className="lg:col-span-2 space-y-8">
-            <Card>
-              <Title>Invoice Details</Title>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Field label="Invoice Number">
-                  <Input value={form.invoiceNo} disabled />
-                </Field>
-
-                <Field label="Project">
-                 <Select
-  required
-  value={form.projectId}
-  onChange={(e) =>
-    update("projectId", e.target.value)
-  }
-  className={`w-full h-11 rounded-lg border px-4 text-sm
-    bg-[#0b0f1a] text-white
-    focus:outline-none focus:ring-2 focus:ring-indigo-500
-    ${!form.projectId ? "border-red-500" : "border-slate-700"}`}
->
-                    <option value="">Select Project</option>
-                    {projects.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-
-                <Field label="Task Type">
-                  <Select
-                    value={form.type}
-                    onChange={(e) => update("type", e.target.value)}
-                  >
-                    <option value="rc">CR</option>
-                    {/* <option value="task">Regular Task</option>
-                    <option value="bug">Bug Fix</option> */}
-                  </Select>
-                </Field>
-
-                <Field label="Rate per Hour (₹)">
-                  <Input
-                    type="number"
-                    placeholder="e.g. 500"
-                    value={form.ratePerHour}
-                    onChange={(e) =>
-                      update("ratePerHour", e.target.value)
-                    }
-                  />
-                </Field>
-
-                <Field label="Start Date" required>
-  <Input
-    type="date"
-    required
-    value={form.startDate}
-    onChange={(e) => update("startDate", e.target.value)}
-    className={`w-full h-11 rounded-lg border px-4 text-sm
-      bg-[#1b2951]
-      focus:outline-none focus:ring-2 focus:ring-indigo-500
-      ${form.startDate ? "border-slate-700 text-white" : "border-red-500 text-slate-400"}`}
-  />
-</Field>
-
-            <Field label="End Date" required>
-  <Input
-    type="date"
-    required
-    value={form.endDate}
-    onChange={(e) => update("endDate", e.target.value)}
-    className={`w-full h-11 rounded-lg border px-4 text-sm
-      bg-[#1b2951]
-      focus:outline-none focus:ring-2 focus:ring-indigo-500
-      ${form.endDate ? "border-slate-700 text-white" : "border-red-500 text-slate-400"}`}
-  />
-</Field>
-              </div>
-            </Card>
-
-            <Card>
-              <Title>Work Log</Title>
-
-              {loading ? (
-                <div className="py-12 text-center text-slate-500 animate-pulse">
-                  Fetching logs...
-                </div>
-              ) : report?.tasks?.length ? (
-                <div className="space-y-3">
-                  {report.tasks.map((task) => (
-                    <div
-                      key={task.id}
-                      className="flex justify-between items-center p-4 border border-slate-800 rounded-lg bg-[#0b0f1a]"
-                    >
-                      <div>
-                        <div className="font-semibold text-white">
-                          {task.title}
-                        </div>
-                        <div className="text-xs text-slate-500">
-                          {task.assignee}
-                        </div>
-                      </div>
-                      <div className="text-indigo-400 font-bold">
-                        {task.estimatedTime.toFixed(2)} hrs
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="py-12 text-center text-slate-500 border border-dashed border-slate-800 rounded-lg">
-                  No completed tasks found.
-                </div>
-              )}
-            </Card>
+        {/* Pie Chart */}
+        <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 shadow-sm">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-lg font-semibold text-white">Task Distribution</h2>
+            <span className="text-xs text-slate-500 bg-slate-800 px-3 py-1 rounded-full tracking-tighter">Current Status</span>
           </div>
-
-          {/* RIGHT SUMMARY */}
-          <div className="lg:sticky lg:top-8 h-fit">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-700 text-white shadow-2xl p-8 space-y-6"
-            >
-              <h2 className="text-xl font-bold border-b border-white/20 pb-4">
-                Invoice Summary
-              </h2>
-
-              <div className="space-y-4">
-                <div className="flex justify-between">
-                  <span>Project:</span>
-                  <span className="font-bold">
-                    {selectedProject?.name || "None"}
-                  </span>
-                </div>
-
-                <div className="flex justify-between">
-                  <span>Total Hours:</span>
-                  <span className="font-mono font-bold">
-                    {totalHours.toFixed(2)} hrs
-                  </span>
-                </div>
-
-                <div className="flex justify-between">
-                  <span>Hourly Rate:</span>
-                  <span className="font-mono font-bold">
-                    ₹{form.ratePerHour || 0}
-                  </span>
-                </div>
-              </div>
-
-              <div className="pt-6 border-t border-white/20">
-                <div className="text-xs uppercase tracking-widest">
-                  Total Amount
-                </div>
-                <div className="text-4xl font-black">
-                  ₹ {totalAmount.toLocaleString("en-IN")}
-                </div>
-              </div>
-
-              <button
-                onClick={exportInvoiceToPDF}
-                disabled={!form.projectId || totalAmount === 0}
-                className="w-full py-4 rounded-xl bg-white text-indigo-700 font-bold
-                hover:bg-slate-100 transition disabled:opacity-50"
-              >
-                Generate Invoice
-              </button>
-            </motion.div>
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={pieData.filter(d => d.value > 0)}
+                  innerRadius="60%"
+                  outerRadius="80%"
+                  paddingAngle={5}
+                  dataKey="value"
+                  isAnimationActive={true}
+                >
+                  {pieData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="none" />
+                  ))}
+                </Pie>
+                <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderRadius: '12px', border: '1px solid #1e293b' }} />
+                <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
+              </PieChart>
+            </ResponsiveContainer>
           </div>
         </div>
       </div>
@@ -627,5 +224,4 @@ const exportInvoiceToPDF = () => {
   );
 }
 
-
-export default withAdminAuth(InvoicePage)
+export default withAdminAuth(AdminDashboard);
