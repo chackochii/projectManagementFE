@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import axios from "axios";
+import withAdminAuth from "../../../lib/withAdminAuth";
 
-export default function ProjectCostPage() {
+function ProjectCostPage() {
   const baseUrl =
     process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
 
@@ -249,3 +250,5 @@ function SummaryCard({ title, value }) {
     </div>
   );
 }// cost estimate
+
+export default withAdminAuth(ProjectCostPage)
