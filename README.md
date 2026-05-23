@@ -34,3 +34,31 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+Project Management & Employee Tracking System
+A robust, enterprise-level management suite built with Next.js. This application facilitates project tracking, employee task management, leave requests, financial cost estimation, and administrative reporting.
+🚀 Features
+🔐 Authentication & Authorization
+Role-Based Access Control (RBAC): Separate portals for Admins and Employees using withAuth and withAdminAuth High-Order Components (HOCs).
+Secure Login: Features password visibility toggles and secure token retrieval for API requests.
+Session Management: Custom logout redirection logic and persistent user state management.
+📊 Project & Task Management
+Kanban Board & Backlog: Manage workflow with dedicated views for active tickets and backlogs.
+Project Context: Centralized state management for project data.
+Task Assignment: Detailed employee task tracking and time logging (Hours/HMS format).
+💼 Admin & HR Tools
+Employee Management: Track employee details and performance.
+Leave System: Comprehensive leave management and approval workflow.
+Client Management: Dedicated portal for managing client relationships and project assignments.
+💰 Finance & Reporting
+Cost Estimation: Tools for calculating project costs and budgets.
+Accounting: Financial tracking and invoice management.
+PDF Generation: Exportable reports using jspdf and jspdf-autotable.
+🛠 Tech Stack
+Framework: Next.js 14/15 (App Router)
+Language: TypeScript
+Styling: Tailwind CSS / PostCSS
+State Management: React Context API
+Reporting: jsPDF & jsPDF-AutoTable
+Linting: ESLint
+
