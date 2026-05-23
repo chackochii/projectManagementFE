@@ -94,15 +94,15 @@ A robust, enterprise-level management suite built with **Next.js**. This applica
 
 ##🚦 Getting Started
 1. Installation
-* **code
-* **Bash
-* **npm install
-* **2. Configure Environment Variables
-* **Create a .env.local file in the root directory and add your API credentials:
-* **code
-* **Env
-* **NEXT_PUBLIC_API_URL=xxxxxxxxxxxxxx
-* **3. Run Development Server
-* **code
-* **Bash
-* **npm run dev
+* code
+* Bash
+* npm install
+* 2. Configure Environment Variables
+* Create a .env.local file in the root directory and add your API credentials:
+* code
+* Env
+* NEXT_PUBLIC_API_URL=xxxxxxxxxxxxxx
+* 3. Run Development Server
+* code
+* Bash
+* npm run dev
