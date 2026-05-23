@@ -6,9 +6,11 @@ import axios from "axios";
 import { Toaster, toast } from "react-hot-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import withAdminAuth from "../../../lib/withAdminAuth";
 
 
-export default function EmployeeTasksPage() {
+
+function EmployeeTasksPage() {
   const [loading, setLoading] = useState(false);
   const [tasks, setTasks] = useState([]);
   const [token, setToken] = useState(null);
@@ -735,3 +737,6 @@ doc.text(`Generated on ${generatedDate}`, 40, 145);
     </div>
   );
 }
+
+
+export default withAdminAuth(EmployeeTasksPage)
