@@ -1,367 +1,254 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
-import { toast, Toaster } from "react-hot-toast";
 import withAdminAuth from "../../../lib/withAdminAuth";
 
-function ClientPage() {
-  const [clients, setClients] = useState([]);
+function ProjectCostPage() {
+  const baseUrl =
+    process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+
+  const [token, setToken] = useState(null);
+
+  const [projects, setProjects] = useState([]);
+  const [selectedProjectId, setSelectedProjectId] = useState(null);
+
+  const [tasks, setTasks] = useState([]);
+  const [totalHours, setTotalHours] = useState(0);
+  const [totalCost, setTotalCost] = useState(0);
+
   const [loading, setLoading] = useState(false);
-  const [token, setToken] = useState("");
 
-  const [newClient, setNewClient] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    address: "",
-    amount: "",
-  });
+  /*
+  ==========================
+  FORMATTERS
+  ==========================
+  */
 
-  const [editClientData, setEditClientData] = useState(null); // for editing
-  const [showEditModal, setShowEditModal] = useState(false);
+  const formatCurrency = (value) =>
+    new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 2,
+    }).format(value);
 
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+  const formatNumber = (value) =>
+    new Intl.NumberFormat("en-IN").format(value);
 
-  // Load token
+  /*
+  ==========================
+  AUTH TOKEN
+  ==========================
+  */
+
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const t = localStorage.getItem("token") || "";
-      setToken(t);
+    if (typeof window === "undefined") return;
+
+    const t = localStorage.getItem("token");
+
+    if (!t) {
+      window.location.href = "/admin";
+      return;
     }
+
+    setToken(t);
   }, []);
 
-  const getAuthHeaders = () => ({
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  /*
+  ==========================
+  FETCH PROJECTS
+  ==========================
+  */
 
-  // Fetch clients with billing
   useEffect(() => {
-    if (token) fetchClients();
+    if (!token) return;
+    fetchProjects();
   }, [token]);
 
-  const fetchClients = async () => {
+  const fetchProjects = async () => {
     try {
-      setLoading(true);
-      const res = await axios.get(`${baseUrl}/clients`, getAuthHeaders());
-      const clientsData = res.data || [];
+      const res = await axios.get(`${baseUrl}/projects`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-      // Fetch billing for each client
-      const clientsWithBilling = await Promise.all(
-        clientsData.map(async (c) => {
-          try {
-            const billingRes = await axios.get(
-              `${baseUrl}/clients/${c.id}/billing`,
-              getAuthHeaders()
-            );
-            return { ...c, billing: billingRes.data };
-          } catch {
-            return { ...c, billing: { totalHours: "00:00:00", projects: [] } };
-          }
-        })
+      const data = res.data?.data || [];
+
+      setProjects(data);
+
+      if (data.length > 0) {
+        setSelectedProjectId(data[0].id);
+      }
+    } catch (err) {
+      console.error("Projects fetch error:", err);
+    }
+  };
+
+  /*
+  ==========================
+  FETCH PROJECT COST
+  ==========================
+  */
+
+  useEffect(() => {
+    if (!token || !selectedProjectId) return;
+
+    fetchProjectCost(selectedProjectId);
+  }, [token, selectedProjectId]);
+
+  const fetchProjectCost = async (projectId) => {
+    setLoading(true);
+
+    try {
+      const res = await axios.get(
+        `${baseUrl}/projects/${projectId}/cost`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
       );
 
-      setClients(clientsWithBilling);
+      const data = res.data?.data || {};
+
+      setTasks(data.tasks || []);
+      setTotalHours(data.totalHours || 0);
+      setTotalCost(data.totalCost || 0);
+
     } catch (err) {
-      console.error("Fetch clients error:", err);
-      toast.error("Failed to load clients");
+      console.error("Cost fetch error:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  // Add client
-  const handleAddClient = async (e) => {
-    e.preventDefault();
-    try {
-      toast.loading("Adding client...", { id: "client" });
-      await axios.post(`${baseUrl}/clients`, newClient, getAuthHeaders());
-      toast.success("Client added successfully!", { id: "client" });
-      setNewClient({ name: "", email: "", phone: "", address: "", amount: "" });
-      fetchClients();
-    } catch (err) {
-      console.error("Add client error:", err);
-      toast.error(err?.response?.data?.error || "Failed to add client", {
-        id: "client",
-      });
-    }
-  };
+  const currentProjectCost = tasks.reduce(
+  (sum, task) => sum + Number(task.cost || 0),
+  0
+);
 
-  // Edit client
-  const handleEditClient = async () => {
-    if (!editClientData) return;
-    try {
-      toast.loading("Updating client...", { id: "editClient" });
-      await axios.put(
-        `${baseUrl}/clients/${editClientData.id}`,
-        editClientData,
-        getAuthHeaders()
-      );
-      toast.success("Client updated!", { id: "editClient" });
-      setShowEditModal(false);
-      setEditClientData(null);
-      fetchClients();
-    } catch (err) {
-      console.error("Edit client error:", err);
-      toast.error(err?.response?.data?.error || "Failed to update client", {
-        id: "editClient",
-      });
-    }
-  };
-
-  // Delete client
-  const handleDeleteClient = async (clientId) => {
-    if (!confirm("Are you sure you want to delete this client?")) return;
-    try {
-      toast.loading("Deleting client...", { id: "deleteClient" });
-      await axios.delete(`${baseUrl}/clients/${clientId}`, getAuthHeaders());
-      toast.success("Client deleted!", { id: "deleteClient" });
-      fetchClients();
-    } catch (err) {
-      console.error("Delete client error:", err);
-      toast.error(err?.response?.data?.error || "Failed to delete client", {
-        id: "deleteClient",
-      });
-    }
-  };
-
-  // Convert HH:MM:SS → decimal hours
-const convertTimeToHours = (timeString) => {
-  if (!timeString) return 0;
-
-  const parts = timeString.split(":").map(Number);
-
-  const hours = parts[0] || 0;
-  const minutes = parts[1] || 0;
-  const seconds = parts[2] || 0;
-
-  return hours + minutes / 60 + seconds / 3600;
-};
-
-
-  if (loading)
-    return <div className="text-white p-4">Loading clients and billing...</div>;
+  /*
+  ==========================
+  UI
+  ==========================
+  */
 
   return (
-    <div className="p-4 md:p-6 text-white">
-      <Toaster position="top-right" />
-      <h1 className="text-2xl font-bold mb-4">Client Management & Billing</h1>
+    <div className="min-h-screen bg-slate-900 text-white p-10">
 
-      {/* Add Client Form */}
-      <form
-        onSubmit={handleAddClient}
-        className="bg-slate-900 p-4 rounded-xl mb-6 border border-slate-700"
-      >
-        <h2 className="text-lg font-semibold mb-2">Add New Client</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <input
-            type="text"
-            placeholder="Name"
-            value={newClient.name}
-            onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
-            className="bg-slate-800 border border-slate-700 px-3 py-2 rounded-lg w-full"
-            required
-          />
-          <input
-            type="email"
-            placeholder="Email"
-            value={newClient.email}
-            onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
-            className="bg-slate-800 border border-slate-700 px-3 py-2 rounded-lg w-full"
-          />
-          <input
-            type="text"
-            placeholder="Phone"
-            value={newClient.phone}
-            onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
-            className="bg-slate-800 border border-slate-700 px-3 py-2 rounded-lg w-full"
-          />
-          <input
-            type="text"
-            placeholder="Address"
-            value={newClient.address}
-            onChange={(e) => setNewClient({ ...newClient, address: e.target.value })}
-            className="bg-slate-800 border border-slate-700 px-3 py-2 rounded-lg w-full"
-          />
-          <input
-            type="number"
-            placeholder="Amount"
-            value={newClient.amount}
-            onChange={(e) => setNewClient({ ...newClient, amount: e.target.value })}
-            className="bg-slate-800 border border-slate-700 px-3 py-2 rounded-lg w-full"
-            required
-          />
-        </div>
-        <button
-          type="submit"
-          className="mt-4 w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg"
+      <h1 className="text-3xl font-bold mb-8">
+        Project Cost Overview
+      </h1>
+
+      {/* PROJECT SELECT */}
+
+      <div className="mb-8 max-w-md">
+        <label className="block text-slate-400 mb-2 text-sm">
+          Select Project
+        </label>
+
+        <select
+          value={selectedProjectId || ""}
+          onChange={(e) =>
+            setSelectedProjectId(Number(e.target.value))
+          }
+          className="w-full p-3 rounded-xl bg-slate-900 border border-slate-700"
         >
-          Add Client
-        </button>
-      </form>
-
-      {/* Clients List */}
-      <div className="bg-slate-900 p-4 rounded-xl border border-slate-700">
-        {clients.length === 0 && (
-          <div className="text-slate-400 text-center py-4">No clients found.</div>
-        )}
-
-        {clients.map((c) => (
-          <div
-            key={c.id}
-            className="bg-slate-800 border border-slate-700 rounded-lg p-4 mb-4"
-          >
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="text-white font-semibold text-lg">{c.name}</h3>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                    setEditClientData(c);
-                    setShowEditModal(true);
-                  }}
-                  className="bg-yellow-500 hover:bg-yellow-600 rounded-full  px-3 py-1  text-white text-sm"
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={() => handleDeleteClient(c.id)}
-                  className="bg-red-500 hover:bg-red-600 px-3 py-1 rounded-full  text-white text-sm"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-
-            <div className="text-slate-300 text-sm mb-2">
-              Email: {c.email || "-"} | Phone: {c.phone || "-"} | Amount: ₹
-              {c.amount}
-            </div>
-
-          {(() => {
-  const totalHoursDecimal = convertTimeToHours(
-    c.billing?.totalHours || "00:00:00"
-  );
-
-  const rate = Number(c.amount || 0);
-
-  const totalCost = totalHoursDecimal * rate;
-
-  return (
-    <div className="flex flex-col gap-1 mt-1">
-      <span className="text-green-400 font-semibold">
-        Total Hours: {c.billing?.totalHours || "00:00:00"}
-      </span>
-
-      <span className="text-yellow-400 font-semibold">
-        Hourly Rate: ₹{rate}/hr
-      </span>
-
-      <span className="text-indigo-400 font-bold text-lg">
-        Total Cost: ₹{totalCost.toFixed(2)}
-      </span>
-    </div>
-  );
-})()}
-
-
-            {c.billing?.projects?.length > 0 && (
-              <div className="mt-2">
-                <h4 className="text-slate-400 font-semibold mb-1">Projects:</h4>
-                <ul className="list-disc list-inside text-slate-300 text-sm">
-                  {c.billing.projects.map((p) => (
-                  <li key={p.projectId} className="flex justify-between">
-  <span>
-    {p.projectName}: {p.hours}
-  </span>
-
-  <span className="text-indigo-400 font-semibold">
-    ₹{(
-      convertTimeToHours(p.hours) * Number(c.amount || 0)
-    ).toFixed(2)}
-  </span>
-</li>
-
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        ))}
+          {projects.map((project) => (
+            <option key={project.id} value={project.id}>
+              {project.name}
+            </option>
+          ))}
+        </select>
       </div>
 
-      {/* Edit Modal */}
-      {showEditModal && editClientData && (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
-  <div className="bg-slate-900 w-full max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-2xl space-y-4">
-            <h2 className="text-xl font-semibold mb-4">Edit Client</h2>
+      {/* SUMMARY */}
 
-            <div className="grid grid-cols-1 gap-3">
-              <input
-                type="text"
-                placeholder="Name"
-                value={editClientData.name}
-                onChange={(e) =>
-                  setEditClientData({ ...editClientData, name: e.target.value })
-                }
-                className="bg-slate-800 border border-slate-700 px-3 py-2 rounded-lg w-full"
-              />
-              <input
-                type="email"
-                placeholder="Email"
-                value={editClientData.email}
-                onChange={(e) =>
-                  setEditClientData({ ...editClientData, email: e.target.value })
-                }
-                className="bg-slate-800 border border-slate-700 px-3 py-2 rounded-lg w-full"
-              />
-              <input
-                type="text"
-                placeholder="Phone"
-                value={editClientData.phone}
-                onChange={(e) =>
-                  setEditClientData({ ...editClientData, phone: e.target.value })
-                }
-                className="bg-slate-800 border border-slate-700 px-3 py-2 rounded-lg w-full"
-              />
-              <input
-                type="text"
-                placeholder="Address"
-                value={editClientData.address}
-                onChange={(e) =>
-                  setEditClientData({ ...editClientData, address: e.target.value })
-                }
-                className="bg-slate-800 border border-slate-700 px-3 py-2 rounded-lg w-full"
-              />
-              <input
-                type="number"
-                placeholder="Amount"
-                value={editClientData.amount}
-                onChange={(e) =>
-                  setEditClientData({ ...editClientData, amount: e.target.value })
-                }
-                className="bg-slate-800 border border-slate-700 px-3 py-2 rounded-lg w-full"
-              />
-            </div>
+  <div className="grid md:grid-cols-4 gap-6 mb-10">
 
-            <div className="flex justify-end gap-2 mt-4">
-              <button
-                onClick={() => setShowEditModal(false)}
-                className="px-4 py-2 rounded bg-gray-600 hover:bg-gray-700 text-white"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleEditClient}
-                className="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-700 text-white"
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+  <SummaryCard
+    title="Total Hours"
+    value={(totalHours / 3600).toFixed(2)}
+  />
+
+  <SummaryCard
+    title="Employee Cost"
+    value={formatCurrency(totalCost)}
+  />
+
+  <SummaryCard
+    title="Current Project Cost"
+    value={formatCurrency(currentProjectCost)}
+  />
+
+   <SummaryCard
+    title="Profit / loss"
+    value={"0"}
+  />
+
+</div>
+
+      {/* TASK COST TABLE */}
+
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+
+        <h2 className="text-lg font-semibold mb-4">
+          Task Cost Breakdown
+        </h2>
+
+        {loading ? (
+          <p className="text-slate-400">Loading...</p>
+        ) : (
+          <table className="w-full text-sm">
+
+            <thead>
+              <tr className="text-slate-400 border-b border-slate-700">
+                <th className="py-2 text-left">Task</th>
+                <th className="py-2 text-left">Employee</th>
+                <th className="py-2 text-left">Hours</th>
+                <th className="py-2 text-left">Rate</th>
+                <th className="py-2 text-left">Cost</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {tasks.map((task) => (
+                <tr
+                  key={task.taskId}
+                  className="border-b border-slate-800"
+                >
+                  <td className="py-2">{task.taskTitle}</td>
+
+                  <td className="py-2">{task.employee}</td>
+
+                  <td className="py-2">
+                   {(task.hours / 3600).toFixed(2)}
+                  </td>
+
+                  <td className="py-2">
+                    {formatCurrency(task.rate)}
+                  </td>
+
+                  <td className="py-2 font-medium">
+                    {formatCurrency(task.cost)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+
+          </table>
+        )}
+
+      </div>
+
     </div>
   );
 }
 
-export default withAdminAuth(ClientPage)
+function SummaryCard({ title, value }) {
+  return (
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+      <p className="text-slate-400 text-sm mb-2">{title}</p>
+      <p className="text-2xl font-bold">{value}</p>
+    </div>
+  );
+}// cost estimate
+
+export default withAdminAuth(ProjectCostPage)
