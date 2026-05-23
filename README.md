@@ -35,57 +35,74 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 
+# Project Management & Employee Tracking System
 
-Project Management & Employee Tracking System
-----------------------------------------------
-A robust, enterprise-level management suite built with Next.js. This application facilitates project tracking, employee task management, leave requests, financial cost estimation, and administrative reporting.
+A robust, enterprise-level management suite built with **Next.js**. This application facilitates project tracking, employee task management, leave requests, financial cost estimation, and administrative reporting.
 
-🚀 Features
-🔐 Authentication & Authorization
-Role-Based Access Control (RBAC): Separate portals for Admins and Employees using withAuth and withAdminAuth High-Order Components (HOCs).
-Secure Login: Features password visibility toggles and secure token retrieval for API requests.
-Session Management: Custom logout redirection logic and persistent user state management.
+---
 
-📊 Project & Task Management
-Kanban Board & Backlog: Manage workflow with dedicated views for active tickets and backlogs.
-Project Context: Centralized state management for project data.
-Task Assignment: Detailed employee task tracking and time logging (Hours/HMS format).
+## 🚀 Features
 
-💼 Admin & HR Tools
-Employee Management: Track employee details and performance.
-Leave System: Comprehensive leave management and approval workflow.
-Client Management: Dedicated portal for managing client relationships and project assignments.
+### 🔐 Authentication & Authorization
+* **Role-Based Access Control (RBAC):** Separate portals for Admins and Employees using `withAuth` and `withAdminAuth` HOCs.
+* **Secure Login:** Features password visibility toggles and secure token retrieval.
+* **Session Management:** Custom logout redirection logic and persistent user state.
 
-💰 Finance & Reporting
-Cost Estimation: Tools for calculating project costs and budgets.
-Accounting: Financial tracking and invoice management.
-PDF Generation: Exportable reports using jspdf and jspdf-autotable.
+### 📊 Project & Task Management
+* **Kanban Board & Backlog:** Manage workflow with dedicated views for active tickets and backlogs.
+* **Project Context:** Centralized state management for project data.
+* **Task Assignment:** Detailed employee task tracking and time logging.
 
-🛠 Tech Stack
-----------------
-Framework: Next.js 14/15 (App Router)
-Language: TypeScript
-Styling: Tailwind CSS / PostCSS
-State Management: React Context API
-Reporting: jsPDF & jsPDF-AutoTable
-Linting: ESLint
+### 💼 Admin & HR Tools
+* **Employee Management:** Track employee details and performance.
+* **Leave System:** Comprehensive leave management and approval workflow.
+* **Client Management:** Dedicated portal for managing client relationships.
 
+### 💰 Finance & Reporting
+* **Cost Estimation:** Tools for calculating project costs and budgets.
+* **Accounting:** Financial tracking and invoice management.
+* **PDF Generation:** Exportable reports using `jspdf` and `jspdf-autotable`.
+
+---
+
+## 🛠 Tech Stack
+
+* **Framework:** Next.js (App Router)
+* **Language:** JavaScript/TypeScript
+* **Styling:** Tailwind CSS / PostCSS
+* **State Management:** React Context API
+* **Reporting:** jsPDF & jsPDF-AutoTable
+
+---
+
+## 📁 Project Structure
+
+```text
 ├── app/
-│   ├── (admin)/           # Admin-specific routes (Reports, Accounting, Clients)
-│   ├── (dashboard)/       # User/Employee dashboard
+│   ├── admin/             # Admin-specific routes (Reports, Accounting, Clients)
+│   ├── dashboard/         # User/Employee dashboard
 │   ├── activeTickets/     # Ticket tracking system
 │   ├── login/             # Authentication pages
 │   ├── projects/          # Project list and details
 │   └── layout.js          # Main application layout
 ├── components/            # Reusable UI components
 ├── context/               # ProjectContext & Global State
-├── lib/                   # HOCs (withAuth), Utilities, and API helpers
+├── lib/                   # HOCs, Utilities, and API helpers
 └── public/                # Static assets
+```
 
 
- Recent Updates
- ------------------
-Authentication: Integrated withAuth and withAdminAuth HOCs for enhanced security across sensitive routes.
-UI/UX: Refactored logout flow to redirect users to the homepage.
-Performance: Refactored AdminReportsPage and ProjectContext for better data handling and state management.
-Features: Added jspdf support for automated reporting and invoice generation.
+##🚦 Getting Started
+1. Installation
+* **code
+* **Bash
+* **npm install
+* **2. Configure Environment Variables
+* **Create a .env.local file in the root directory and add your API credentials:
+* **code
+* **Env
+* **NEXT_PUBLIC_API_URL=xxxxxxxxxxxxxx
+* **3. Run Development Server
+* **code
+* **Bash
+* **npm run dev
