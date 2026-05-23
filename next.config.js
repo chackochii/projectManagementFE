@@ -1,10 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   generateEtags: false,
-
   reactStrictMode: true,
 
   experimental: {
+    // Corrected: turbopack options are now nested
+    turbopack: {
+      root: '.',
+    },
+
     optimizePackageImports: [
       "framer-motion",
       "jspdf",
@@ -25,8 +29,6 @@ const nextConfig = {
       },
     ];
   },
-
-  turbopack: {}
 };
 
-export default nextConfig;
+module.exports = nextConfig;
