@@ -77,7 +77,7 @@ export default function Sidebar() {
 
   const handleLogout = () => {
     localStorage.clear(); // Clears all at once safely
-    router.replace("/login");
+    router.replace("/");
   };
 
   const initials = username
